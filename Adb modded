@@ -12,6 +12,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 print("[ABD] Part 1/27 - Services Loaded")
@@ -24,13 +25,14 @@ print("[ABD] Part 1/27 - Services Loaded")
 
 local Settings = {
     TeleportDistance = 3.5,
-    AuraRadius = 35,
+    AuraRadius = 25,
     ScanInterval = 0.3,
     StandScanInterval = 0.5,
     AutoSummonEnabled = true,
     RokakakaDelay = 2.0,
     ArrowDelay = 3.0,
     SummonDelay = 1.5,
+    MaxAuraRange = 25,
     SkillRounds = {
         {"E","R"},
         {"T","Y"},
@@ -39,11 +41,13 @@ local Settings = {
         {"V","B","J"}
     },
     SkillCooldowns = {
-        Q = 1.5, E = 0.4, R = 0.8, T = 1.2,
-        Y = 0.6, F = 0.5, Z = 0.7, X = 0.6,
-        C = 0.8, V = 0.6, B = 1.0, J = 0.8,
+        Q = 1.5, E = 0.3, R = 0.6, T = 1.0,
+        Y = 0.5, F = 0.4, Z = 0.5, X = 0.5,
+        C = 0.6, V = 0.5, B = 0.8, J = 0.6,
         M1 = 0.2
-    }
+    },
+    DamageAmount = 150,
+    TeleportCooldown = 0.3
 }
 
 print("[ABD] Part 2/27 - Config Loaded")
@@ -83,12 +87,14 @@ local State = {
     LastSummonTime = 0,
     LastRokakakaTime = 0,
     LastArrowTime = 0,
+    LastTeleportTime = 0,
     IsUsingRokakaka = false,
     IsUsingArrow = false,
     IsProcessingItem = false,
     SummonAttempts = 0,
     RollDelay = 3.0,
-    DamageEvent = nil
+    DamageEvent = nil,
+    TeleportCooldown = 0.3
 }
 
 print("[ABD] Part 3/27 - State Loaded")
@@ -107,7 +113,6 @@ for _, skill in ipairs(AllSkills) do
     State.Timers[skill] = 0
 end
 
--- Default enabled skills
 local defaultSkills = {"E","R","T","Y","F","Z","X","C","V","B","J"}
 for _, skill in ipairs(defaultSkills) do
     State.Skills[skill] = true
@@ -138,7 +143,7 @@ end
 
 local function WaitForCharacter()
     local attempts = 0
-    while attempts < 20 do
+    while attempts < 30 do
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
             return true
         end
@@ -413,11 +418,10 @@ local function ScanForStand()
     return standFound, standName, standData
 end
 
-print("[ABD] Part 8/27 - Stand Detection Loaded")
---[[
+print("[ABD] Part 8/27 - Stand Detection Loaded"--[[)
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 9/27
-    AUTO SUMMON STAND - FIXED
+    AUTO SUMMON STAND
     ============================================================
 ]]
 
@@ -474,17 +478,6 @@ local function AutoSummonStand()
         needSummon = true
     end
     
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, child in ipairs(backpack:GetChildren()) do
-            local name = child.Name:lower()
-            if name:find("stand") and not name:find("arrow") and not name:find("rokakaka") then
-                needSummon = true
-                break
-            end
-        end
-    end
-    
     if needSummon then
         local now = tick()
         if now - State.LastSummonTime >= Settings.SummonDelay then
@@ -493,9 +486,7 @@ local function AutoSummonStand()
             State.LastSummonTime = now
             State.Timers["Q"] = now + Settings.SkillCooldowns["Q"]
             
-            if success then
-                State.SummonAttempts = 0
-            else
+            if not success then
                 State.SummonAttempts = State.SummonAttempts + 1
                 task.wait(0.5)
                 ForceSummonStand()
@@ -504,11 +495,11 @@ local function AutoSummonStand()
     end
 end
 
-print("[ABD] Part 9/27 - Auto Summon Fixed Loaded")
+print("[ABD] Part 9/27 - Auto Summon Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 10/27
-    ROKAKAKA FRUIT AUTO USE - FIXED
+    ROKAKAKA FRUIT AUTO USE
     ============================================================
 ]]
 
@@ -534,15 +525,14 @@ local function UseRokakakaFruit()
     end
     
     if not rokakaka then
-        State.StatusText = "No Rokakaka found in inventory"
+        State.StatusText = "No Rokakaka found"
         State.IsUsingRokakaka = false
         State.IsProcessingItem = false
         return
     end
     
-    State.StatusText = "Using Rokakaka: " .. rokakaka.Name
+    State.StatusText = "Using Rokakaka..."
     
-    -- Activate the item
     pcall(function()
         if rokakaka.Parent ~= char then
             rokakaka.Parent = char
@@ -553,7 +543,6 @@ local function UseRokakakaFruit()
     
     task.wait(0.5)
     
-    -- Find and click YES button
     pcall(function()
         local pGui = LocalPlayer:FindFirstChild("PlayerGui")
         if pGui then
@@ -566,10 +555,12 @@ local function UseRokakakaFruit()
                                 if btn.Visible and btn.AbsoluteSize.X > 0 then
                                     local ap = btn.AbsolutePosition
                                     local as = btn.AbsoluteSize
-                                    VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, true, game, 0)
-                                    task.wait(0.05)
-                                    VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, false, game, 0)
-                                    break
+                                    if ap and as then
+                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, true, game, 0)
+                                        task.wait(0.05)
+                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, false, game, 0)
+                                        break
+                                    end
                                 end
                             end
                         end
@@ -580,21 +571,21 @@ local function UseRokakakaFruit()
     end)
     
     State.LastRokakakaTime = tick()
-    State.StatusText = "Rokakaka used, waiting " .. Settings.RokakakaDelay .. "s..."
+    State.StatusText = "Rokakaka used, waiting..."
     
     task.wait(Settings.RokakakaDelay)
     ScanForStand()
     
     State.IsUsingRokakaka = false
     State.IsProcessingItem = false
-    State.StatusText = "Rokakaka complete - Stand reset"
+    State.StatusText = "Rokakaka complete"
 end
 
-print("[ABD] Part 10/27 - Rokakaka Auto Use Fixed Loaded")
+print("[ABD] Part 10/27 - Rokakaka Auto Use Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 11/27
-    ARROW AUTO USE - FIXED
+    ARROW AUTO USE
     ============================================================
 ]]
 
@@ -620,13 +611,13 @@ local function UseArrow()
     end
     
     if not arrow then
-        State.StatusText = "No Arrow found in inventory"
+        State.StatusText = "No Arrow found"
         State.IsUsingArrow = false
         State.IsProcessingItem = false
         return
     end
     
-    State.StatusText = "Using Arrow: " .. arrow.Name
+    State.StatusText = "Using Arrow..."
     
     pcall(function()
         if arrow.Parent ~= char then
@@ -650,10 +641,12 @@ local function UseArrow()
                                 if btn.Visible and btn.AbsoluteSize.X > 0 then
                                     local ap = btn.AbsolutePosition
                                     local as = btn.AbsoluteSize
-                                    VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, true, game, 0)
-                                    task.wait(0.05)
-                                    VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, false, game, 0)
-                                    break
+                                    if ap and as then
+                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, true, game, 0)
+                                        task.wait(0.05)
+                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, false, game, 0)
+                                        break
+                                    end
                                 end
                             end
                         end
@@ -664,11 +657,11 @@ local function UseArrow()
     end)
     
     State.LastArrowTime = tick()
-    State.StatusText = "Arrow used, waiting " .. Settings.ArrowDelay .. "s..."
+    State.StatusText = "Arrow used, waiting..."
     
     task.wait(Settings.ArrowDelay)
     
-    State.StatusText = "Arrow complete, summoning stand..."
+    State.StatusText = "Summoning stand after Arrow..."
     task.wait(0.5)
     ForceSummonStand()
     task.wait(0.8)
@@ -676,10 +669,10 @@ local function UseArrow()
     
     State.IsUsingArrow = false
     State.IsProcessingItem = false
-    State.StatusText = "Arrow complete - New Stand: " .. State.StandName
+    State.StatusText = "Arrow complete - Stand: " .. State.StandName
 end
 
-print("[ABD] Part 11/27 - Arrow Auto Use Fixed Loaded")
+print("[ABD] Part 11/27 - Arrow Auto Use Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 12/27
@@ -706,21 +699,23 @@ local function AutoArrowLoop()
     local now = tick()
     if now - State.LastArrowTime < 30 then return end
     
-    if State.HasStand then
-        pcall(UseArrow)
-    end
+    pcall(UseArrow)
 end
 
 print("[ABD] Part 12/27 - Auto Rokakaka & Arrow Loop Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 13/27
-    TELEPORT & KEY PRESS - FIXED
+    TELEPORT & KEY PRESS - SAFE
     ============================================================
 ]]
 
 local function TeleportBehind(Target)
     if not Target then return false end
+    if not State.Teleport then return false end
+    
+    local now = tick()
+    if now - State.LastTeleportTime < Settings.TeleportCooldown then return false end
     
     local char = LocalPlayer.Character
     if not char then return false end
@@ -730,6 +725,9 @@ local function TeleportBehind(Target)
     
     if not root or not targetRoot then return false end
     
+    local dist = (root.Position - targetRoot.Position).Magnitude
+    if dist > Settings.MaxAuraRange then return false end
+    
     local dir = (root.Position - targetRoot.Position).Unit
     local pos = targetRoot.Position + dir * Settings.TeleportDistance
     pos = Vector3.new(pos.X, targetRoot.Position.Y, pos.Z)
@@ -738,6 +736,7 @@ local function TeleportBehind(Target)
         root.CFrame = CFrame.new(pos, targetRoot.Position)
     end)
     
+    State.LastTeleportTime = now
     return true
 end
 
@@ -781,7 +780,7 @@ local function PressM1()
     end)
 end
 
-print("[ABD] Part 13/27 - Teleport & Key Press Fixed Loaded")
+print("[ABD] Part 13/27 - Teleport & Key Press Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 14/27
@@ -807,7 +806,6 @@ local function ExecuteSkillRound()
         end
     end
     
-    -- Move to next round
     State.CurrentRound = State.CurrentRound + 1
     if State.CurrentRound > #Settings.SkillRounds then
         State.CurrentRound = 1
@@ -820,15 +818,17 @@ local function ExecuteRotation()
     return ExecuteSkillRound()
 end
 
-print("[ABD] Part 14/27 - Skill Rotation with Rounds Loaded")
+print("[ABD] Part 14/27 - Skill Rotation Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 15/27
-    KILL AURA - FIXED
+    KILL AURA - SAFE
     ============================================================
 ]]
 
 local function DoKillAura()
+    if not State.Aura then return end
+    
     local target = State.Target
     if not target or not target.Parent then
         target = GetBossByIndex(State.SelectedIndex) or GetClosestBoss()
@@ -849,30 +849,24 @@ local function DoKillAura()
     
     local dist = (root.Position - targetRoot.Position).Magnitude
     
-    -- Teleport behind target
-    if State.Teleport or dist > Settings.AuraRadius then
-        local dir = (root.Position - targetRoot.Position).Unit
-        local pos = targetRoot.Position + dir * Settings.TeleportDistance
-        pos = Vector3.new(pos.X, targetRoot.Position.Y, pos.Z)
-        pcall(function()
-            root.CFrame = CFrame.new(pos, targetRoot.Position)
-        end)
+    -- Only teleport if within range
+    if dist <= Settings.MaxAuraRange then
+        -- Teleport behind
+        if State.Teleport then
+            TeleportBehind(target)
+        end
+        
+        -- Deal damage using DamageEvent
+        local damageEvent = GetDamageEvent()
+        if damageEvent then
+            pcall(function()
+                damageEvent:FireServer(targetHum, targetRoot.CFrame, Settings.DamageAmount, 0, Vector3.new(0,0,0), "Normal", 0)
+            end)
+        end
+        
+        -- Execute skills
+        ExecuteRotation()
     end
-    
-    if dist > Settings.AuraRadius then
-        return
-    end
-    
-    -- Deal damage using DamageEvent
-    local damageEvent = GetDamageEvent()
-    if damageEvent then
-        pcall(function()
-            damageEvent:FireServer(targetHum, targetRoot.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0)
-        end)
-    end
-    
-    -- Execute skills
-    ExecuteRotation()
 end
 
 local function FaceTarget(Target)
@@ -892,11 +886,11 @@ local function FaceTarget(Target)
     end)
 end
 
-print("[ABD] Part 15/27 - Kill Aura Fixed Loaded")
+print("[ABD] Part 15/27 - Kill Aura Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 16/27
-    AUTO CLICK M1 - FIXED
+    AUTO CLICK M1
     ============================================================
 ]]
 
@@ -925,14 +919,12 @@ local function DoAutoClickM1()
     local dist = (root.Position - targetRoot.Position).Magnitude
     
     if dist <= 20 then
-        -- Press M1
         pcall(function()
             VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, true, nil, nil)
             task.wait(0.05)
             VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, false, nil, nil)
         end)
         
-        -- Also try damage event
         local damageEvent = GetDamageEvent()
         if damageEvent then
             local targetHum = GetHumanoid(target)
@@ -945,7 +937,7 @@ local function DoAutoClickM1()
     end
 end
 
-print("[ABD] Part 16/27 - Auto Click M1 Fixed Loaded")
+print("[ABD] Part 16/27 - Auto Click M1 Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 17/27
@@ -990,24 +982,7 @@ local function MainLoop()
     -- Combat
     if State.Target then
         FaceTarget(State.Target)
-        
-        if State.Aura then
-            DoKillAura()
-        end
-        
-        if State.Teleport then
-            local char = LocalPlayer.Character
-            if char then
-                local root = GetRoot(char)
-                local targetRoot = GetRoot(State.Target)
-                if root and targetRoot then
-                    local dist = (root.Position - targetRoot.Position).Magnitude
-                    if dist > 10 then
-                        TeleportBehind(State.Target)
-                    end
-                end
-            end
-        end
+        DoKillAura()
     end
     
     -- Update status
@@ -1022,7 +997,7 @@ print("[ABD] Part 17/27 - Main Loop Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 18/27
-    UI - MAIN FRAME (EXPANDED)
+    UI - MAIN FRAME
     ============================================================
 ]]
 
@@ -1083,7 +1058,7 @@ print("[ABD] Part 18/27 - UI Main Frame Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 19/27
-    UI - FLOATING BUTTON & TOP SECTION
+    UI - FLOATING BUTTON & TOP
     ============================================================
 ]]
 
@@ -1161,7 +1136,7 @@ local function CreateTopSection(frame)
     return toggle, standLabel
 end
 
-print("[ABD] Part 19/27 - UI Floating Button & Top Section Loaded")
+print("[ABD] Part 19/27 - UI Floating & Top Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 20/27
@@ -1301,9 +1276,6 @@ local function CreateSkillGrid(frame)
         btn.MouseButton1Click:Connect(function()
             State.Skills[key] = not State.Skills[key]
             btn.BackgroundColor3 = State.Skills[key] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
-            if key == "M1" then
-                btn.Text = "🖱 " .. (State.Skills[key] and "ON" or "OFF")
-            end
         end)
         
         btns[key] = btn
@@ -1320,12 +1292,11 @@ print("[ABD] Part 20/27 - UI Boss List & Skill Grid Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 21/27
-    UI - CONTROLS & STATUS
+    UI - CONTROLS
     ============================================================
 ]]
 
 local function CreateControls(frame)
-    -- Controls Row
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, -20, 0, 34)
     row.Position = UDim2.new(0, 10, 0, 256)
@@ -1449,7 +1420,6 @@ local function CreateControls(frame)
         pcall(UseArrow)
     end)
     
-    -- M1 Auto Click button
     local m1Btn = Instance.new("TextButton")
     m1Btn.Size = UDim2.new(0, 100, 0, 30)
     m1Btn.Position = UDim2.new(0, 555, 0, 0)
@@ -1470,20 +1440,7 @@ local function CreateControls(frame)
         m1Btn.Text = State.AutoClickM1 and "🖱 M1 ON" or "🖱 M1"
     end)
     
-    -- Status
-    local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1, -20, 0, 28)
-    status.Position = UDim2.new(0, 10, 0, 380)
-    status.BackgroundTransparency = 1
-    status.Text = "Status: Ready"
-    status.TextColor3 = Color3.fromRGB(150, 150, 200)
-    status.Font = Enum.Font.Gotham
-    status.TextSize = 10
-    status.TextWrapped = true
-    status.TextXAlignment = Enum.TextXAlignment.Left
-    status.Parent = frame
-    
-    return tp, aura, scan, summonBtn, rokaBtn, arrowBtn, m1Btn, status
+    return tp, aura, scan, summonBtn, rokaBtn, arrowBtn, m1Btn
 end
 
 print("[ABD] Part 21/27 - UI Controls Loaded")
@@ -1517,7 +1474,6 @@ local function CreateDelaySettings(frame)
     dlabel.TextXAlignment = Enum.TextXAlignment.Left
     dlabel.Parent = delayBox
     
-    -- Rokakaka Delay
     local rokaLabel = Instance.new("TextLabel")
     rokaLabel.Size = UDim2.new(0, 60, 1, 0)
     rokaLabel.Position = UDim2.new(0, 80, 0, 0)
@@ -1557,7 +1513,6 @@ local function CreateDelaySettings(frame)
         rokaLabel.Text = "Roka: " .. delays[idx] .. "s"
     end)
     
-    -- Arrow Delay
     local arrowLabel = Instance.new("TextLabel")
     arrowLabel.Size = UDim2.new(0, 60, 1, 0)
     arrowLabel.Position = UDim2.new(0, 205, 0, 0)
@@ -1597,7 +1552,6 @@ local function CreateDelaySettings(frame)
         arrowLabel.Text = "Arrow: " .. delays[idx] .. "s"
     end)
     
-    -- Summon Delay
     local sumLabel = Instance.new("TextLabel")
     sumLabel.Size = UDim2.new(0, 70, 1, 0)
     sumLabel.Position = UDim2.new(0, 330, 0, 0)
@@ -1637,7 +1591,6 @@ local function CreateDelaySettings(frame)
         sumLabel.Text = "Summon: " .. delays[idx] .. "s"
     end)
     
-    -- Auto Toggle buttons
     local autoRoka = Instance.new("TextButton")
     autoRoka.Size = UDim2.new(0, 50, 0, 24)
     autoRoka.Position = UDim2.new(0, 465, 0, 4)
@@ -1683,9 +1636,25 @@ print("[ABD] Part 22/27 - UI Delay Settings Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 23/27
-    UI - UPDATE FUNCTIONS
+    UI - STATUS & UPDATE FUNCTIONS
     ============================================================
 ]]
+
+local function CreateStatus(frame)
+    local status = Instance.new("TextLabel")
+    status.Size = UDim2.new(1, -20, 0, 28)
+    status.Position = UDim2.new(0, 10, 0, 380)
+    status.BackgroundTransparency = 1
+    status.Text = "Status: Ready"
+    status.TextColor3 = Color3.fromRGB(150, 150, 200)
+    status.Font = Enum.Font.Gotham
+    status.TextSize = 10
+    status.TextWrapped = true
+    status.TextXAlignment = Enum.TextXAlignment.Left
+    status.Parent = frame
+    
+    return status
+end
 
 -- Variables for UI updates
 local listContainer, listFrame, countLabel
@@ -1768,7 +1737,7 @@ local function UpdateStatus()
     statusLabel.Text = "Status: " .. State.StatusText
 end
 
-print("[ADB] Part 23/27 - UI Update Functions Loaded")
+print("[ABD] Part 23/27 - UI Status & Updates Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 24/27
@@ -1779,31 +1748,25 @@ print("[ADB] Part 23/27 - UI Update Functions Loaded")
 function UI:CreateComplete()
     local screen, frame = self:Create()
     
-    -- Floating button
     floatButton = CreateFloatingButton(screen)
     
-    -- Top section
     local toggle, stand = CreateTopSection(frame)
     toggleButton = toggle
     standLabel = stand
     
-    -- Boss list
     local container, lframe, count = CreateBossList(frame)
     listContainer = container
     listFrame = lframe
     countLabel = count
     
-    -- Skill grid
     local btns = CreateSkillGrid(frame)
     
-    -- Delay settings
     local rokaSlider, arrowSlider, sumSlider, autoRoka, autoArrow = CreateDelaySettings(frame)
     
-    -- Controls
-    local tp, aura, scan, summonBtn, rokaBtn, arrowBtn, m1Btn, status = CreateControls(frame)
-    statusLabel = status
+    local tp, aura, scan, summonBtn, rokaBtn, arrowBtn, m1Btn = CreateControls(frame)
     
-    -- Floating button toggle
+    statusLabel = CreateStatus(frame)
+    
     floatButton.MouseButton1Click:Connect(function()
         frame.Visible = not frame.Visible
         State.MenuVisible = frame.Visible
@@ -1811,7 +1774,6 @@ function UI:CreateComplete()
             Color3.fromRGB(30, 30, 60) or Color3.fromRGB(60, 30, 30)
     end)
     
-    -- Main toggle
     toggle.MouseButton1Click:Connect(function()
         State.Enabled = not State.Enabled
         toggle.Text = State.Enabled and "⏹ STOP" or "▶ START"
@@ -1836,14 +1798,10 @@ function UI:CreateComplete()
             if State.StandLoopConnection then
                 State.StandLoopConnection:Disconnect()
             end
-            if State.AutoLoopConnection then
-                State.AutoLoopConnection:Disconnect()
-            end
             if State.M1LoopConnection then
                 State.M1LoopConnection:Disconnect()
             end
             
-            -- Main loop
             State.LoopConnection = RunService.Heartbeat:Connect(function()
                 if not State.Enabled then return end
                 pcall(MainLoop)
@@ -1855,7 +1813,6 @@ function UI:CreateComplete()
                 end
             end)
             
-            -- Stand scan loop
             State.StandLoopConnection = RunService.Heartbeat:Connect(function()
                 if not State.Enabled then return end
                 if tick() % Settings.StandScanInterval < 0.05 then
@@ -1864,7 +1821,6 @@ function UI:CreateComplete()
                 end
             end)
             
-            -- M1 click loop
             State.M1LoopConnection = RunService.Heartbeat:Connect(function()
                 if not State.Enabled then return end
                 if tick() % 0.3 < 0.05 then
@@ -1880,10 +1836,6 @@ function UI:CreateComplete()
                 State.StandLoopConnection:Disconnect()
                 State.StandLoopConnection = nil
             end
-            if State.AutoLoopConnection then
-                State.AutoLoopConnection:Disconnect()
-                State.AutoLoopConnection = nil
-            end
             if State.M1LoopConnection then
                 State.M1LoopConnection:Disconnect()
                 State.M1LoopConnection = nil
@@ -1893,7 +1845,6 @@ function UI:CreateComplete()
         end
     end)
     
-    -- Initial scan
     WaitForCharacter()
     ScanAllBosses()
     ScanForStand()
@@ -1913,18 +1864,17 @@ print("[ABD] Part 24/27 - UI Complete Creation Loaded")
     ============================================================
 ]]
 
--- Auto summon when character respawns
 LocalPlayer.CharacterAdded:Connect(function(char)
     State.IsDead = false
     State.SummonAttempts = 0
     State.LastSummonTime = 0
+    State.LastTeleportTime = 0
     
     task.wait(1.5)
     if Settings.AutoSummonEnabled then
         pcall(AutoSummonStand)
     end
     
-    -- Update UI
     pcall(function()
         ScanForStand()
         UpdateStandDisplay()
@@ -1944,10 +1894,8 @@ print("[ABD] Part 25/27 - Character Added Event Loaded")
 local function Initialize()
     WaitForCharacter()
     
-    -- Initial stand scan
     ScanForStand()
     
-    -- Auto summon on start
     if Settings.AutoSummonEnabled then
         task.wait(0.5)
         AutoSummonStand()
