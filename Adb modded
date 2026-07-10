@@ -14,12 +14,13 @@ _G.RollDelay = 3.0
 _G.SummonDelay = 1.5
 _G.RokaDelay = 1.5
 
-_G.ComboDelays = {
-    [1] = 5.0,
-    [2] = 5.0,
-    [3] = 5.0,
-    [4] = 5.0,
-    [5] = 5.0
+_G.SkillDelays = {
+    E = 5.0, R = 5.0, T = 5.0, Y = 5.0, F = 5.0,
+    Z = 5.0, X = 5.0, C = 5.0, V = 5.0, B = 5.0, J = 5.0
+}
+local SkillTimers = {
+    E = 0, R = 0, T = 0, Y = 0, F = 0,
+    Z = 0, X = 0, C = 0, V = 0, B = 0, J = 0
 }
 
 local KeyMapping = {
@@ -181,23 +182,23 @@ ComboFrame.Parent = MainFrame
 local ComboList = Instance.new("UIListLayout")
 ComboList.Padding, ComboList.Parent = UDim.new(0, 4), ComboFrame
 
-local SkillRoundsLabels = {"E + R Delay (s):", "T + Y Delay (s):", "F + Z Delay (s):", "X + C Delay (s):", "V + B + J Delay (s):"}
-for i = 1, 5 do
+local order = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"}
+for _, k in ipairs(order) do
     local Row = Instance.new("Frame")
     Row.Size, Row.BackgroundTransparency, Row.Parent = UDim2.new(1, -6, 0, 26), 1, ComboFrame
     local Lbl = Instance.new("TextLabel")
-    Lbl.Size, Lbl.BackgroundTransparency, Lbl.Text = UDim2.new(0, 200, 1, 0), 1, SkillRoundsLabels[i]
+    Lbl.Size, Lbl.BackgroundTransparency, Lbl.Text = UDim2.new(0, 200, 1, 0), 1, "Skill [ " .. k .. " ] Delay (s):"
     Lbl.TextColor3, Lbl.Font, Lbl.TextSize, Lbl.TextXAlignment, Lbl.Parent = Color3.fromRGB(200, 200, 200), Enum.Font.SourceSansBold, 12, Enum.TextXAlignment.Left, Row
     local Box = Instance.new("TextBox")
     Box.Size, Box.Position, Box.BackgroundColor3 = UDim2.new(0, 80, 1, 0), UDim2.new(0, 220, 0, 0), Color3.fromRGB(30, 30, 30)
-    Box.Text, Box.TextColor3, Box.Font, Box.TextSize, Box.Parent = tostring(_G.ComboDelays[i]), Color3.fromRGB(255, 255, 255), Enum.Font.SourceSansBold, 12, Row
+    Box.Text, Box.TextColor3, Box.Font, Box.TextSize, Box.Parent = tostring(_G.SkillDelays[k]), Color3.fromRGB(255, 255, 255), Enum.Font.SourceSansBold, 12, Row
     Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
     Box.FocusLost:Connect(function()
         local val = tonumber(Box.Text)
-        if val and val >= 0 then _G.ComboDelays[i] = val else Box.Text = tostring(_G.ComboDelays[i]) end
+        if val and val >= 0 then _G.SkillDelays[k] = val else Box.Text = tostring(_G.SkillDelays[k]) end
     end)
 end
-ComboFrame.CanvasSize = UDim2.new(0, 0, 0, 5 * 30)
+ComboFrame.CanvasSize = UDim2.new(0, 0, 0, #order * 30)
 
 local ToggleM1 = Instance.new("TextButton")
 ToggleM1.Size, ToggleM1.Position = UDim2.new(0, 440, 0, 35), UDim2.new(0, 20, 0, 395)
@@ -291,7 +292,7 @@ local function BypassYesButton()
     return false
 end
 
-local SkillRounds = { {"E","R"}, {"T","Y"}, {"F","Z"}, {"X","C"}, {"V","B","J"} }
+local order = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"}
 
 task.spawn(function()
     while true do
@@ -316,21 +317,17 @@ task.spawn(function()
                             while _G.KillAura and npc.Humanoid.Health > 0 and npc.Parent == workspace do
                                 if DamageEvent then DamageEvent:FireServer(npc.Humanoid, npc.HumanoidRootPart.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0) end
                                 
-                                for roundIdx, Round in ipairs(SkillRounds) do
-                                    if not _G.KillAura or npc.Humanoid.Health <= 0 then break end
-                                    local anySkillUsed = false
-                                    for _, key in ipairs(Round) do
-                                        if _G.ActiveSkills[key] and KeyMapping[key] then
+                                local currentTime = tick()
+                                for _, key in ipairs(order) do
+                                    if _G.ActiveSkills[key] and KeyMapping[key] then
+                                        if currentTime - SkillTimers[key] >= _G.SkillDelays[key] then
                                             pcall(function()
                                                 VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
                                                 task.wait(0.02)
                                                 VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
                                             end)
-                                            anySkillUsed = true
+                                            SkillTimers[key] = currentTime
                                         end
-                                    end
-                                    if anySkillUsed then
-                                        task.wait(_G.ComboDelays[roundIdx])
                                     end
                                 end
                                 task.wait(0.01)
