@@ -1,432 +1,28 @@
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 1/27
-    SERVICES & INITIALIZATION
-    ============================================================
-]]
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
-print("[ABD] Part 1/27 - Services Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 2/27
-    CONFIGURATION
-    ============================================================
-]]
+local DamageEvent = ReplicatedStorage:FindFirstChild("Damage") or ReplicatedStorage:FindFirstChild("Dmg")
+if not DamageEvent then return end
 
-local Settings = {
-    TeleportDistance = 3.5,
-    AuraRadius = 25,
-    ScanInterval = 0.3,
-    StandScanInterval = 0.5,
-    AutoSummonEnabled = true,
-    RokakakaDelay = 2.0,
-    ArrowDelay = 3.0,
-    SummonDelay = 1.5,
-    MaxAuraRange = 25,
-    SkillRounds = {
-        {"E","R"},
-        {"T","Y"},
-        {"F","Z"},
-        {"X","C"},
-        {"V","B","J"}
-    },
-    SkillCooldowns = {
-        Q = 1.5, E = 0.3, R = 0.6, T = 1.0,
-        Y = 0.5, F = 0.4, Z = 0.5, X = 0.5,
-        C = 0.6, V = 0.5, B = 0.8, J = 0.6,
-        M1 = 0.2
-    },
-    DamageAmount = 150,
-    TeleportCooldown = 0.3
+_G.KillAura = false
+_G.SelectedBoss = "All Bosses"
+_G.ActiveSkills = {E = true, R = true, T = true, Y = true, F = true, Z = true, X = true, C = true, V = true, B = true, J = true}
+_G.AutoClickM1 = false
+_G.AutoRollStand = false
+_G.TeleportToBoss = false
+_G.TeleportDistance = 3.5
+
+local KeyMapping = {
+    E = Enum.KeyCode.E, R = Enum.KeyCode.R, T = Enum.KeyCode.T,
+    Y = Enum.KeyCode.Y, F = Enum.KeyCode.F, Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C, V = Enum.KeyCode.V, B = Enum.KeyCode.B, J = Enum.KeyCode.J
 }
 
-print("[ABD] Part 2/27 - Config Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 3/27
-    STATE MANAGEMENT
-    ============================================================
-]]
-
-local State = {
-    Enabled = false,
-    Teleport = false,
-    Aura = false,
-    AutoSummon = true,
-    AutoRokakaka = false,
-    AutoArrow = false,
-    AutoClickM1 = false,
-    Target = nil,
-    Bosses = {},
-    BossNames = {},
-    SelectedIndex = 1,
-    RotationIndex = 1,
-    CurrentRound = 1,
-    LoopConnection = nil,
-    StandLoopConnection = nil,
-    AutoLoopConnection = nil,
-    M1LoopConnection = nil,
-    IsDead = false,
-    HasStand = false,
-    StandName = "None",
-    StandData = {},
-    Skills = {},
-    Timers = {},
-    MenuVisible = true,
-    StatusText = "Ready",
-    LastSummonTime = 0,
-    LastRokakakaTime = 0,
-    LastArrowTime = 0,
-    LastTeleportTime = 0,
-    IsUsingRokakaka = false,
-    IsUsingArrow = false,
-    IsProcessingItem = false,
-    SummonAttempts = 0,
-    RollDelay = 3.0,
-    DamageEvent = nil,
-    TeleportCooldown = 0.3
-}
-
-print("[ABD] Part 3/27 - State Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 4/27
-    SKILL INITIALIZATION
-    ============================================================
-]]
-
-local AllSkills = {"Q","E","R","T","Y","F","Z","X","C","V","B","J","M1"}
-local RotationSkills = {"E","R","T","Y","F","Z","X","C","V","B","J"}
-
-for _, skill in ipairs(AllSkills) do
-    State.Skills[skill] = false
-    State.Timers[skill] = 0
-end
-
-local defaultSkills = {"E","R","T","Y","F","Z","X","C","V","B","J"}
-for _, skill in ipairs(defaultSkills) do
-    State.Skills[skill] = true
-end
-
-print("[ABD] Part 4/27 - Skills Initialized")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 5/27
-    UTILITY FUNCTIONS
-    ============================================================
-]]
-
-local function GetHumanoid(Char)
-    if not Char then return nil end
-    return Char:FindFirstChildOfClass("Humanoid")
-end
-
-local function GetRoot(Char)
-    if not Char then return nil end
-    return Char:FindFirstChild("HumanoidRootPart")
-end
-
-local function IsAlive(Char)
-    local hum = GetHumanoid(Char)
-    return hum and hum.Health and hum.Health > 0
-end
-
-local function WaitForCharacter()
-    local attempts = 0
-    while attempts < 30 do
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            return true
-        end
-        task.wait(0.3)
-        attempts = attempts + 1
-    end
-    return false
-end
-
-local function FindItemInBackpack(itemName)
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if not backpack then return nil end
-    for _, child in ipairs(backpack:GetChildren()) do
-        if child.Name and child.Name:lower():find(itemName:lower()) then
-            return child
-        end
-    end
-    return nil
-end
-
-local function FindItemInCharacter(itemName)
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    for _, child in ipairs(char:GetChildren()) do
-        if child.Name and child.Name:lower():find(itemName:lower()) then
-            return child
-        end
-    end
-    return nil
-end
-
-local function GetAllItems()
-    local items = {}
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, child in ipairs(backpack:GetChildren()) do
-            table.insert(items, child)
-        end
-    end
-    local char = LocalPlayer.Character
-    if char then
-        for _, child in ipairs(char:GetChildren()) do
-            if child:IsA("Tool") then
-                table.insert(items, child)
-            end
-        end
-    end
-    return items
-end
-
-local function GetDamageEvent()
-    if State.DamageEvent then return State.DamageEvent end
-    local event = ReplicatedStorage:FindFirstChild("Damage") or ReplicatedStorage:FindFirstChild("Dmg")
-    State.DamageEvent = event
-    return event
-end
-
-print("[ABD] Part 5/27 - Utilities Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 6/27
-    BOSS DETECTION
-    ============================================================
-]]
-
-local function IsBoss(Char)
-    if not Char then return false end
-    
-    local name = Char.Name or ""
-    local lower = name:lower()
-    
-    local patterns = {
-        "boss","dio","kars","diavolo","jotaro","giorno",
-        "pucci","valentine","tooru","wonder","heaven",
-        "king crimson","golden","star platinum","the world",
-        "crazy diamond","killer queen","stand","requiem",
-        "d4c","tusk","soft & wet","made in heaven",
-        "enemy","npc","trainer","arena","shadow",
-        "dark","evil","monster","demon","angel"
-    }
-    
-    for _, p in ipairs(patterns) do
-        if lower:find(p) then return true end
-    end
-    
-    if Char:FindFirstChild("BossTag") then return true end
-    if Char:FindFirstChild("BossHealthBar") then return true end
-    if Char:FindFirstChild("Boss") then return true end
-    if Char:FindFirstChild("Enemy") then return true end
-    if Char:FindFirstChild("NPC") then return true end
-    
-    local hum = GetHumanoid(Char)
-    if hum and hum.MaxHealth and hum.MaxHealth > 80 then
-        return true
-    end
-    
-    return false
-end
-
-print("[ABD] Part 6/27 - Boss Detection Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 7/27
-    BOSS SCANNER
-    ============================================================
-]]
-
-local function ScanAllBosses()
-    local bosses = {}
-    local names = {}
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local char = player.Character
-            if char and IsBoss(char) and IsAlive(char) then
-                table.insert(bosses, char)
-                local display = char.Name or "Unknown"
-                local hum = GetHumanoid(char)
-                if hum and hum.Health then
-                    display = display .. " [" .. math.floor(hum.Health) .. "HP]"
-                end
-                table.insert(names, display)
-            end
-        end
-    end
-    
-    for _, obj in ipairs(Workspace:GetChildren()) do
-        if obj:IsA("Model") and obj.Name ~= LocalPlayer.Name and IsBoss(obj) and IsAlive(obj) then
-            local alreadyAdded = false
-            for _, boss in ipairs(bosses) do
-                if boss == obj then
-                    alreadyAdded = true
-                    break
-                end
-            end
-            if not alreadyAdded then
-                table.insert(bosses, obj)
-                local display = obj.Name or "Unknown"
-                local hum = GetHumanoid(obj)
-                if hum and hum.Health then
-                    display = display .. " [" .. math.floor(hum.Health) .. "HP]"
-                end
-                table.insert(names, display)
-            end
-        end
-    end
-    
-    State.Bosses = bosses
-    State.BossNames = names
-    
-    if State.SelectedIndex > #State.Bosses then
-        State.SelectedIndex = math.max(1, #State.Bosses)
-    end
-    if State.SelectedIndex < 1 then
-        State.SelectedIndex = 1
-    end
-    
-    return bosses, names
-end
-
-local function GetBossByIndex(index)
-    if index < 1 or index > #State.Bosses then return nil end
-    return State.Bosses[index]
-end
-
-local function GetClosestBoss()
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    local root = GetRoot(char)
-    if not root then return nil end
-    
-    local closest = nil
-    local minDist = math.huge
-    
-    for _, boss in ipairs(State.Bosses) do
-        if boss and boss.Parent then
-            local br = GetRoot(boss)
-            if br then
-                local dist = (root.Position - br.Position).Magnitude
-                if dist < minDist then
-                    minDist = dist
-                    closest = boss
-                end
-            end
-        end
-    end
-    
-    return closest
-end
-
-print("[ABD] Part 7/27 - Boss Scanner Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 8/27
-    STAND DETECTION
-    ============================================================
-]]
-
-local function ScanForStand()
-    local char = LocalPlayer.Character
-    if not char then 
-        State.HasStand = false
-        State.StandName = "None"
-        return false
-    end
-    
-    local standFound = false
-    local standName = "None"
-    local standData = {}
-    
-    for _, child in ipairs(char:GetChildren()) do
-        local name = child.Name or ""
-        local lower = name:lower()
-        
-        if lower:find("stand") or lower:find("ability") or lower:find("power") or
-           lower:find("summon") or lower:find("spirit") or lower:find("ghost") or
-           lower:find("requiem") or lower:find("over heaven") or lower:find("act") or
-           lower:find("za") or lower:find("the world") or lower:find("star platinum") or
-           lower:find("king crimson") or lower:find("golden experience") then
-            standFound = true
-            standName = child.Name
-            table.insert(standData, child)
-        end
-        
-        if child:IsA("Model") then
-            for _, sub in ipairs(child:GetChildren()) do
-                if sub:IsA("BasePart") then
-                    local subName = sub.Name:lower()
-                    if subName:find("stand") or subName:find("body") or 
-                       subName:find("arm") or subName:find("leg") or subName:find("head") or
-                       subName:find("torso") or subName:find("chest") then
-                        standFound = true
-                        if standName == "None" then
-                            standName = child.Name
-                        end
-                        table.insert(standData, child)
-                        break
-                    end
-                end
-            end
-        end
-    end
-    
-    if not standFound then
-        local charRoot = GetRoot(char)
-        if charRoot then
-            for _, obj in ipairs(Workspace:GetChildren()) do
-                if obj:IsA("Model") and obj ~= char then
-                    local objName = obj.Name:lower()
-                    if objName:find("stand") or objName:find("ability") or objName:find("spirit") or
-                       objName:find("requiem") or objName:find("heaven") then
-                        local objRoot = GetRoot(obj)
-                        if objRoot then
-                            local dist = (charRoot.Position - objRoot.Position).Magnitude
-                            if dist < 25 then
-                                standFound = true
-                                standName = obj.Name
-                                table.insert(standData, obj)
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-    
-    State.HasStand = standFound
-    State.StandName = standFound and standName or "None"
-    State.StandData = standData
-    
-    return standFound, standName, standData
-end
-
-print("[ABD] Part 8/27 - Stand Detection Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 9/27
-    AUTO SUMMON STAND
-    ============================================================
-]]
-
-local function PressQKey()
+local function AutoSummonStand()
+    task.wait(1.5)
     pcall(function()
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
         task.wait(0.05)
@@ -434,135 +30,409 @@ local function PressQKey()
     end)
 end
 
-local function ForceSummonStand()
-    for i = 1, 3 do
-        PressQKey()
-        task.wait(0.3)
-        ScanForStand()
-        if State.HasStand then
-            State.StatusText = "Stand summoned: " .. State.StandName
-            return true
+LocalPlayer.CharacterAdded:Connect(function()
+    AutoSummonStand()
+end)
+task.spawn(AutoSummonStand)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ABDM_AdvancedMenu_V6_Fixed"
+pcall(function() 
+    if game:GetService("CoreGui"):FindFirstChild("ABDM_AdvancedMenu_V6_Fixed") then 
+        game:GetService("CoreGui")["ABDM_AdvancedMenu_V6_Fixed"]:Destroy() 
+    end 
+end)
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local OpenCloseBtn = Instance.new("TextButton")
+OpenCloseBtn.Size, OpenCloseBtn.Position = UDim2.new(0, 60, 0, 30), UDim2.new(0, 10, 0.4, 0)
+OpenCloseBtn.BackgroundColor3, OpenCloseBtn.Text = Color3.fromRGB(40, 180, 40), "[ ABD ]"
+OpenCloseBtn.TextColor3, OpenCloseBtn.Font, OpenCloseBtn.TextSize = Color3.fromRGB(255, 255, 255), Enum.Font.SourceSansBold, 14
+OpenCloseBtn.Parent = ScreenGui
+Instance.new("UICorner", OpenCloseBtn).CornerRadius = UDim.new(0, 6)
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size, MainFrame.Position = UDim2.new(0, 480, 0, 430), UDim2.new(0.05, 0, 0.12, 0)
+MainFrame.BackgroundColor3, MainFrame.BorderSizePixel = Color3.fromRGB(20, 20, 20), 0
+MainFrame.Active, MainFrame.Draggable, MainFrame.Parent = true, true, ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local Title = Instance.new("TextLabel")
+Title.Size, Title.BackgroundColor3 = UDim2.new(1, 0, 0, 40), Color3.fromRGB(30, 30, 30)
+Title.Text, Title.TextColor3, Title.TextSize = "   ABD MODDED - TELEPORT KILL AURA", Color3.fromRGB(255, 255, 255), 14
+Title.TextXAlignment, Title.Font, Title.Parent = Enum.TextXAlignment.Left, Enum.Font.SourceSansBold, MainFrame
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
+
+OpenCloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+local ToggleKillAura = Instance.new("TextButton")
+ToggleKillAura.Size, ToggleKillAura.Position = UDim2.new(0, 440, 0, 40), UDim2.new(0, 20, 0, 50)
+ToggleKillAura.BackgroundColor3, ToggleKillAura.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
+ToggleKillAura.Text, ToggleKillAura.Font, ToggleKillAura.TextSize = "TELEPORT KILL AURA + AUTO SKILL: OFF", Enum.Font.SourceSansBold, 14
+ToggleKillAura.Parent = MainFrame
+Instance.new("UICorner", ToggleKillAura).CornerRadius = UDim.new(0, 6)
+
+ToggleKillAura.MouseButton1Click:Connect(function()
+    _G.KillAura = not _G.KillAura
+    ToggleKillAura.BackgroundColor3 = _G.KillAura and Color3.fromRGB(40, 180, 40) or Color3.fromRGB(180, 40, 40)
+    ToggleKillAura.Text = _G.KillAura and "TELEPORT KILL AURA + AUTO SKILL: ON" or "TELEPORT KILL AURA + AUTO SKILL: OFF"
+end)
+
+local SelectTitle = Instance.new("TextLabel")
+SelectTitle.Size, SelectTitle.Position = UDim2.new(0, 210, 0, 20), UDim2.new(0, 20, 0, 100)
+SelectTitle.BackgroundTransparency, SelectTitle.Text = 1, "MỤC TIÊU: " .. _G.SelectedBoss
+SelectTitle.TextColor3, SelectTitle.TextSize, SelectTitle.Font = Color3.fromRGB(255, 200, 0), 13, Enum.Font.SourceSansBold
+SelectTitle.TextXAlignment, SelectTitle.Parent = Enum.TextXAlignment.Left, MainFrame
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size, ScrollingFrame.Position = UDim2.new(0, 210, 0, 200), UDim2.new(0, 20, 0, 125)
+ScrollingFrame.BackgroundColor3, ScrollingFrame.BorderSizePixel, ScrollingFrame.ScrollBarThickness = Color3.fromRGB(10, 10, 10), 0, 4
+ScrollingFrame.Parent = MainFrame
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding, ListLayout.Parent = UDim.new(0, 4), ScrollingFrame
+
+local function RefreshDropdown()
+    if not MainFrame.Visible then return end
+    for _, child in pairs(ScrollingFrame:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    local AllBtn = Instance.new("TextButton")
+    AllBtn.Size, AllBtn.Font, AllBtn.TextSize = UDim2.new(1, -6, 0, 30), Enum.Font.SourceSansBold, 12
+    AllBtn.BackgroundColor3 = (_G.SelectedBoss == "All Bosses") and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(25, 25, 25)
+    AllBtn.Text, AllBtn.TextColor3, AllBtn.Parent = "⭐ ALL BOSSES", Color3.fromRGB(255, 255, 255), ScrollingFrame
+    Instance.new("UICorner", AllBtn).CornerRadius = UDim.new(0, 4)
+    AllBtn.MouseButton1Click:Connect(function() _G.SelectedBoss = "All Bosses" SelectTitle.Text = "MỤC TIÊU: All Bosses" RefreshDropdown() end)
+    local count = 1
+    for _, npc in pairs(workspace:GetChildren()) do
+        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+            if not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
+                count = count + 1
+                local BossBtn = Instance.new("TextButton")
+                BossBtn.Size, BossBtn.Font, BossBtn.TextSize = UDim2.new(1, -6, 0, 30), Enum.Font.SourceSans, 12
+                BossBtn.BackgroundColor3 = (_G.SelectedBoss == npc.Name) and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(25, 25, 25)
+                BossBtn.Text, BossBtn.TextColor3, BossBtn.Parent = npc.Name .. " [" .. math.floor(npc.Humanoid.Health) .. "]", Color3.fromRGB(220, 220, 220), ScrollingFrame
+                Instance.new("UICorner", BossBtn).CornerRadius = UDim.new(0, 4)
+                BossBtn.MouseButton1Click:Connect(function() _G.SelectedBoss = npc.Name SelectTitle.Text = "MỤC TIÊU: " .. npc.Name RefreshDropdown() end)
+            end
         end
+    end
+    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, count * 34)
+end
+task.spawn(function() while task.wait(3) do pcall(RefreshDropdown) end end)
+
+local SkillTitle = Instance.new("TextLabel")
+SkillTitle.Size, SkillTitle.Position = UDim2.new(0, 210, 0, 20), UDim2.new(0, 250, 0, 100)
+SkillTitle.BackgroundTransparency, SkillTitle.Text = 1, " TỰ ĐỘNG BẤM PHÍM NÀO:"
+SkillTitle.TextColor3, SkillTitle.TextSize, SkillTitle.Font = Color3.fromRGB(0, 255, 200), 13, Enum.Font.SourceSansBold
+SkillTitle.TextXAlignment, SkillTitle.Parent = Enum.TextXAlignment.Left, MainFrame
+
+local SkillFrame = Instance.new("ScrollingFrame")
+SkillFrame.Size, SkillFrame.Position = UDim2.new(0, 210, 0, 200), UDim2.new(0, 250, 0, 125)
+SkillFrame.BackgroundColor3 = Color3.fromRGB(10,10,10)
+SkillFrame.BorderSizePixel = 0
+SkillFrame.ScrollBarThickness = 4
+SkillFrame.CanvasSize = UDim2.new(0,0,0,0)
+SkillFrame.Parent = MainFrame
+Instance.new("UICorner", SkillFrame).CornerRadius = UDim.new(0, 6)
+local SkillListLayout = Instance.new("UIListLayout")
+SkillListLayout.Padding, SkillListLayout.Parent = UDim.new(0, 4), SkillFrame
+
+local function BuildSkillToggles()
+    task.wait()
+    local total = 0
+    for _,v in ipairs(SkillFrame:GetChildren()) do
+        if v:IsA("TextButton") then
+            total = total + 28
+        end
+    end
+    SkillFrame.CanvasSize = UDim2.new(0,0,0,total)
+    local order = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"}
+    for _, k in pairs(order) do
+        local SkillBtn = Instance.new("TextButton")
+        SkillBtn.Size, SkillBtn.Font, SkillBtn.TextSize = UDim2.new(1, 0, 0, 24), Enum.Font.SourceSansBold, 11
+        SkillBtn.BackgroundColor3 = _G.ActiveSkills[k] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
+        SkillBtn.Text, SkillBtn.TextColor3, SkillBtn.Parent = "Phím [ " .. k .. " ]: ON", Color3.fromRGB(255, 255, 255), SkillFrame
+        Instance.new("UICorner", SkillBtn).CornerRadius = UDim.new(0, 4)
+        SkillBtn.MouseButton1Click:Connect(function()
+            _G.ActiveSkills[k] = not _G.ActiveSkills[k]
+            SkillBtn.BackgroundColor3 = _G.ActiveSkills[k] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
+            SkillBtn.Text = "Phím [ " .. k .. " ]: " .. (_G.ActiveSkills[k] and "ON" or "OFF")
+        end)
+    end
+end
+BuildSkillToggles()
+
+task.wait()
+local total = 0
+for _,v in ipairs(SkillFrame:GetChildren()) do
+    if v:IsA("TextButton") then
+        total = total + 28
+    end
+end
+SkillFrame.CanvasSize = UDim2.new(0,0,0,total)
+
+local ToggleM1 = Instance.new("TextButton")
+ToggleM1.Size, ToggleM1.Position = UDim2.new(0, 440, 0, 40), UDim2.new(0, 20, 0, 335)
+ToggleM1.BackgroundColor3, ToggleM1.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
+ToggleM1.Text, ToggleM1.Font, ToggleM1.TextSize = "AUTO CLICK M1: OFF", Enum.Font.SourceSansBold, 14
+ToggleM1.Parent = MainFrame
+Instance.new("UICorner", ToggleM1).CornerRadius = UDim.new(0, 6)
+
+ToggleM1.MouseButton1Click:Connect(function()
+    _G.AutoClickM1 = not _G.AutoClickM1
+    ToggleM1.BackgroundColor3 = _G.AutoClickM1 and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(180, 40, 40)
+    ToggleM1.Text = _G.AutoClickM1 and "AUTO CLICK M1: ON" or "AUTO CLICK M1: OFF"
+end)
+
+local ToggleTeleport = Instance.new("TextButton")
+ToggleTeleport.Size, ToggleTeleport.Position = UDim2.new(0, 440, 0, 40), UDim2.new(0, 20, 0, 380)
+ToggleTeleport.BackgroundColor3, ToggleTeleport.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
+ToggleTeleport.Text, ToggleTeleport.Font, ToggleTeleport.TextSize = "TELEPORT TO BOSS: OFF", Enum.Font.SourceSansBold, 14
+ToggleTeleport.Parent = MainFrame
+Instance.new("UICorner", ToggleTeleport).CornerRadius = UDim.new(0, 6)
+
+ToggleTeleport.MouseButton1Click:Connect(function()
+    _G.TeleportToBoss = not _G.TeleportToBoss
+    ToggleTeleport.BackgroundColor3 = _G.TeleportToBoss and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(180, 40, 40)
+    ToggleTeleport.Text = _G.TeleportToBoss and "TELEPORT TO BOSS: ON" or "TELEPORT TO BOSS: OFF"
+end)
+
+local SkillRounds = {
+    {"E","R"},
+    {"T","Y"},
+    {"F","Z"},
+    {"X","C"},
+    {"V","B","J"}
+}
+
+local CurrentRound = 1
+local function GetTargets()
+    local targets = {}
+    for _, npc in pairs(workspace:GetChildren()) do
+        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+            if not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
+                if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
+                    table.insert(targets, npc)
+                end
+            end
+        end
+    end
+    return targets
+end
+
+local function TeleportBehindTarget(character, targetPart)
+    if not character or not targetPart then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    local targetPos = targetPart.Position
+    local targetLook = targetPart.CFrame.LookVector
+    
+    local behindPos = targetPos - targetLook * _G.TeleportDistance
+    
+    rootPart.CFrame = CFrame.new(behindPos, targetPos)
+end
+
+local function GetNearestTarget(character, targets)
+    if not character or #targets == 0 then return nil end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return nil end
+    
+    local nearest = nil
+    local nearestDist = math.huge
+    
+    for _, target in pairs(targets) do
+        local targetRoot = target:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local dist = (rootPart.Position - targetRoot.Position).Magnitude
+            if dist < nearestDist then
+                nearestDist = dist
+                nearest = target
+            end
+        end
+    end
+    return nearest
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+        if _G.KillAura or _G.TeleportToBoss then
+            pcall(function()
+                local character = LocalPlayer.Character
+                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then return end
+                
+                local targets = GetTargets()
+                if #targets == 0 then return end
+                
+                local target = GetNearestTarget(character, targets)
+                if not target then return end
+                
+                local targetRoot = target:FindFirstChild("HumanoidRootPart")
+                if not targetRoot then return end
+                
+                -- Teleport to behind boss liên tục khi bật TP hoặc KillAura
+                if _G.TeleportToBoss or _G.KillAura then
+                    TeleportBehindTarget(character, targetRoot)
+                    task.wait(0.03)
+                end
+                
+                if _G.KillAura then
+                    rootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3.5)
+                    DamageEvent:FireServer(target.Humanoid, targetRoot.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0)
+                    task.wait(0.05)
+                    
+                    local Round = SkillRounds[CurrentRound]
+                    for _, key in ipairs(Round) do
+                        if not _G.KillAura then break end
+                        if _G.ActiveSkills[key] then
+                            pcall(function()
+                                VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
+                                task.wait(0.10)
+                                VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
+                            end)
+                            task.wait(0.15)
+                        end
+                    end
+                    
+                    CurrentRound = CurrentRound + 1
+                    if CurrentRound > #SkillRounds then
+                        CurrentRound = 1
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if _G.AutoClickM1 then
+            pcall(function()
+                local character = LocalPlayer.Character
+                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then return end
+                
+                local isNear = false
+                local targets = GetTargets()
+                for _, target in pairs(targets) do
+                    local targetRoot = target:FindFirstChild("HumanoidRootPart")
+                    if targetRoot and (rootPart.Position - targetRoot.Position).Magnitude <= 20 then
+                        isNear = true
+                        break
+                    end
+                end
+                
+                if isNear then
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                    task.wait(0.02)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                end
+            end)
+        end
+    end
+end)
+
+_G.RollDelay = 3.0
+
+local StandFrame = Instance.new("Frame")
+StandFrame.Size, StandFrame.Position = UDim2.new(0, 240, 0, 150), UDim2.new(0.52, 0, 0.12, 0)
+StandFrame.BackgroundColor3, StandFrame.BorderSizePixel = Color3.fromRGB(25, 25, 25), 0
+StandFrame.Active, StandFrame.Draggable, StandFrame.Parent = true, true, ScreenGui
+Instance.new("UICorner", StandFrame).CornerRadius = UDim.new(0, 8)
+
+local StandTitle = Instance.new("TextLabel")
+StandTitle.Size, StandTitle.BackgroundColor3 = UDim2.new(1, 0, 0, 30), Color3.fromRGB(35, 35, 35)
+StandTitle.Text, StandTitle.TextColor3, StandTitle.TextSize = "   STAND AUTOMATION", Color3.fromRGB(255, 255, 255), 12
+StandTitle.TextXAlignment, StandTitle.Font, StandTitle.Parent = Enum.TextXAlignment.Left, Enum.Font.SourceSansBold, StandFrame
+Instance.new("UICorner", StandTitle).CornerRadius = UDim.new(0, 8)
+
+local InfoLabel = Instance.new("TextLabel")
+InfoLabel.Size, InfoLabel.Position = UDim2.new(1, -20, 0, 25), UDim2.new(0, 10, 0, 35)
+InfoLabel.BackgroundTransparency = 1
+InfoLabel.Text = "CHẾ ĐỘ GACHA TUẦN TỰ"
+InfoLabel.TextColor3, InfoLabel.Font, InfoLabel.TextSize = Color3.fromRGB(255, 165, 0), Enum.Font.SourceSansBold, 12
+InfoLabel.TextXAlignment, InfoLabel.Parent = Enum.TextXAlignment.Center, StandFrame
+
+local DelayFrame = Instance.new("Frame")
+DelayFrame.Size, DelayFrame.Position = UDim2.new(1, -20, 0, 25), UDim2.new(0, 10, 0, 65)
+DelayFrame.BackgroundTransparency = 1
+DelayFrame.Parent = StandFrame
+
+local DelayText = Instance.new("TextLabel")
+DelayText.Size, DelayText.Position = UDim2.new(0, 120, 1, 0), UDim2.new(0, 0, 0, 0)
+DelayText.BackgroundTransparency = 1
+DelayText.Text = "Thời gian chờ (s): " .. tostring(_G.RollDelay)
+DelayText.TextColor3, DelayText.Font, DelayText.TextSize = Color3.fromRGB(200, 200, 200), Enum.Font.SourceSansBold, 11
+DelayText.TextXAlignment, DelayText.Parent = Enum.TextXAlignment.Left, DelayFrame
+
+local DelayInput = Instance.new("TextBox")
+DelayInput.Size, DelayInput.Position = UDim2.new(0, 80, 1, 0), UDim2.new(0, 130, 0, 0)
+DelayInput.BackgroundColor3, DelayInput.TextColor3 = Color3.fromRGB(15, 15, 15), Color3.fromRGB(255, 255, 255)
+DelayInput.Text, DelayInput.Font, DelayInput.TextSize = "3", Enum.Font.SourceSansBold, 12
+DelayInput.Parent = DelayFrame
+Instance.new("UICorner", DelayInput).CornerRadius = UDim.new(0, 4)
+
+DelayInput.FocusLost:Connect(function()
+    local val = tonumber(DelayInput.Text)
+    if val and val > 0 then
+        _G.RollDelay = val
+        DelayText.Text = "Thời gian chờ (s): " .. tostring(_G.RollDelay)
+    else
+        DelayInput.Text = tostring(_G.RollDelay)
+    end
+end)
+
+local ToggleRoll = Instance.new("TextButton")
+ToggleRoll.Size, ToggleRoll.Position = UDim2.new(1, -20, 0, 35), UDim2.new(0, 10, 0, 100)
+ToggleRoll.BackgroundColor3, ToggleRoll.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
+ToggleRoll.Text, ToggleRoll.Font, ToggleRoll.TextSize = "AUTO ROLL (ROKA+ARROW): OFF", Enum.Font.SourceSansBold, 12
+ToggleRoll.Parent = StandFrame
+Instance.new("UICorner", ToggleRoll).CornerRadius = UDim.new(0, 6)
+
+OpenCloseBtn.MouseButton1Click:Connect(function()
+    StandFrame.Visible = MainFrame.Visible
+end)
+
+ToggleRoll.MouseButton1Click:Connect(function()
+    _G.AutoRollStand = not _G.AutoRollStand
+    ToggleRoll.BackgroundColor3 = _G.AutoRollStand and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(180, 40, 40)
+    ToggleRoll.Text = _G.AutoRollStand and "AUTO ROLL (ROKA+ARROW): ON" or "AUTO ROLL (ROKA+ARROW): OFF"
+end)
+
+local function UseItem(itemName)
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    local char = LocalPlayer.Character
+    if not bp or not char then return false end
+    local item = bp:FindFirstChild(itemName)
+    if not item and char:FindFirstChild(itemName) then item = char[itemName] end
+    if item then
+        item.Parent = char
+        task.wait(0.2)
+        item:Activate()
+        task.wait(0.4)
+        return true
     end
     return false
 end
 
-local function AutoSummonStand()
-    if not Settings.AutoSummonEnabled then return end
-    
-    local char = LocalPlayer.Character
-    if not char then 
-        WaitForCharacter()
-        return 
-    end
-    
-    local hum = GetHumanoid(char)
-    if not hum then return end
-    
-    if hum.Health and hum.Health <= 0 then
-        State.IsDead = true
-        State.SummonAttempts = 0
-        return
-    end
-    
-    ScanForStand()
-    
-    local needSummon = false
-    
-    if State.IsDead then
-        State.IsDead = false
-        needSummon = true
-        task.wait(0.5)
-    end
-    
-    if not State.HasStand then
-        needSummon = true
-    end
-    
-    if needSummon then
-        local now = tick()
-        if now - State.LastSummonTime >= Settings.SummonDelay then
-            State.StatusText = "Summoning Stand..."
-            local success = ForceSummonStand()
-            State.LastSummonTime = now
-            State.Timers["Q"] = now + Settings.SkillCooldowns["Q"]
-            
-            if not success then
-                State.SummonAttempts = State.SummonAttempts + 1
-                task.wait(0.5)
-                ForceSummonStand()
-            end
-        end
-    end
-end
-
-print("[ABD] Part 9/27 - Auto Summon Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 10/27
-    ROKAKAKA FRUIT AUTO USE
-    ============================================================
-]]
-
-local function UseRokakakaFruit()
-    if State.IsUsingRokakaka or State.IsProcessingItem then return end
-    State.IsUsingRokakaka = true
-    State.IsProcessingItem = true
-    
-    local char = LocalPlayer.Character
-    if not char then 
-        State.IsUsingRokakaka = false
-        State.IsProcessingItem = false
-        return 
-    end
-    
-    local rokakaka = nil
-    local allItems = GetAllItems()
-    for _, item in ipairs(allItems) do
-        if item.Name and (item.Name:lower():find("rokakaka") or item.Name:lower():find("roka")) then
-            rokakaka = item
-            break
-        end
-    end
-    
-    if not rokakaka then
-        State.StatusText = "No Rokakaka found"
-        State.IsUsingRokakaka = false
-        State.IsProcessingItem = false
-        return
-    end
-    
-    State.StatusText = "Using Rokakaka..."
-    
-    pcall(function()
-        if rokakaka.Parent ~= char then
-            rokakaka.Parent = char
-            task.wait(0.2)
-        end
-        rokakaka:Activate()
-    end)
-    
-    task.wait(0.5)
-    
+local function BypassYesButton()
     pcall(function()
         local pGui = LocalPlayer:FindFirstChild("PlayerGui")
         if pGui then
             for _, gui in pairs(pGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     for _, btn in pairs(gui:GetDescendants()) do
-                        if btn:IsA("TextButton") then
-                            local text = btn.Text or ""
-                            if text:upper():find("YES") or btn.Name:upper():find("YES") then
-                                if btn.Visible and btn.AbsoluteSize.X > 0 then
-                                    local ap = btn.AbsolutePosition
-                                    local as = btn.AbsoluteSize
-                                    if ap and as then
-                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, true, game, 0)
-                                        task.wait(0.05)
-                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, false, game, 0)
-                                        break
-                                    end
-                                end
+                        if btn:IsA("TextButton") and (string.upper(btn.Text) == "YES" or btn.Name == "Yes" or btn.Name == "YES") and btn.Visible then
+                            local ap = btn.AbsolutePosition
+                            local as = btn.AbsoluteSize
+                            if ap and as then
+                                VirtualInputManager:SendMouseButtonEvent(ap.X + (as.X/2), ap.Y + (as.Y/2) + 36, 0, true, game, 0)
+                                task.wait(0.05)
+                                VirtualInputManager:SendMouseButtonEvent(ap.X + (as.X/2), ap.Y + (as.Y/2) + 36, 0, false, game, 0)
+                                return true
                             end
                         end
                     end
@@ -570,1372 +440,41 @@ local function UseRokakakaFruit()
             end
         end
     end)
-    
-    State.LastRokakakaTime = tick()
-    State.StatusText = "Rokakaka used, waiting..."
-    
-    task.wait(Settings.RokakakaDelay)
-    ScanForStand()
-    
-    State.IsUsingRokakaka = false
-    State.IsProcessingItem = false
-    State.StatusText = "Rokakaka complete"
+    return false
 end
 
-print("[ABD] Part 10/27 - Rokakaka Auto Use Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 11/27
-    ARROW AUTO USE
-    ============================================================
-]]
-
-local function UseArrow()
-    if State.IsUsingArrow or State.IsProcessingItem then return end
-    State.IsUsingArrow = true
-    State.IsProcessingItem = true
-    
-    local char = LocalPlayer.Character
-    if not char then 
-        State.IsUsingArrow = false
-        State.IsProcessingItem = false
-        return 
-    end
-    
-    local arrow = nil
-    local allItems = GetAllItems()
-    for _, item in ipairs(allItems) do
-        if item.Name and (item.Name:lower():find("arrow") or item.Name:lower():find("stand arrow")) then
-            arrow = item
-            break
-        end
-    end
-    
-    if not arrow then
-        State.StatusText = "No Arrow found"
-        State.IsUsingArrow = false
-        State.IsProcessingItem = false
-        return
-    end
-    
-    State.StatusText = "Using Arrow..."
-    
-    pcall(function()
-        if arrow.Parent ~= char then
-            arrow.Parent = char
-            task.wait(0.2)
-        end
-        arrow:Activate()
-    end)
-    
-    task.wait(0.5)
-    
-    pcall(function()
-        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if pGui then
-            for _, gui in pairs(pGui:GetChildren()) do
-                if gui:IsA("ScreenGui") and gui.Enabled then
-                    for _, btn in pairs(gui:GetDescendants()) do
-                        if btn:IsA("TextButton") then
-                            local text = btn.Text or ""
-                            if text:upper():find("YES") or btn.Name:upper():find("YES") then
-                                if btn.Visible and btn.AbsoluteSize.X > 0 then
-                                    local ap = btn.AbsolutePosition
-                                    local as = btn.AbsoluteSize
-                                    if ap and as then
-                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, true, game, 0)
-                                        task.wait(0.05)
-                                        VirtualInputManager:SendMouseButtonEvent(ap.X + as.X/2, ap.Y + as.Y/2 + 36, 0, false, game, 0)
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    
-    State.LastArrowTime = tick()
-    State.StatusText = "Arrow used, waiting..."
-    
-    task.wait(Settings.ArrowDelay)
-    
-    State.StatusText = "Summoning stand after Arrow..."
-    task.wait(0.5)
-    ForceSummonStand()
-    task.wait(0.8)
-    ScanForStand()
-    
-    State.IsUsingArrow = false
-    State.IsProcessingItem = false
-    State.StatusText = "Arrow complete - Stand: " .. State.StandName
-end
-
-print("[ABD] Part 11/27 - Arrow Auto Use Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 12/27
-    AUTO ROKAKAKA & ARROW LOOP
-    ============================================================
-]]
-
-local function AutoRokakakaLoop()
-    if not State.Enabled then return end
-    if not State.AutoRokakaka then return end
-    if State.IsProcessingItem then return end
-    
-    local now = tick()
-    if now - State.LastRokakakaTime < 30 then return end
-    
-    pcall(UseRokakakaFruit)
-end
-
-local function AutoArrowLoop()
-    if not State.Enabled then return end
-    if not State.AutoArrow then return end
-    if State.IsProcessingItem then return end
-    
-    local now = tick()
-    if now - State.LastArrowTime < 30 then return end
-    
-    pcall(UseArrow)
-end
-
-print("[ABD] Part 12/27 - Auto Rokakaka & Arrow Loop Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 13/27
-    TELEPORT & KEY PRESS - SAFE
-    ============================================================
-]]
-
-local function TeleportBehind(Target)
-    if not Target then return false end
-    if not State.Teleport then return false end
-    
-    local now = tick()
-    if now - State.LastTeleportTime < Settings.TeleportCooldown then return false end
-    
-    local char = LocalPlayer.Character
-    if not char then return false end
-    
-    local root = GetRoot(char)
-    local targetRoot = GetRoot(Target)
-    
-    if not root or not targetRoot then return false end
-    
-    local dist = (root.Position - targetRoot.Position).Magnitude
-    if dist > Settings.MaxAuraRange then return false end
-    
-    local dir = (root.Position - targetRoot.Position).Unit
-    local pos = targetRoot.Position + dir * Settings.TeleportDistance
-    pos = Vector3.new(pos.X, targetRoot.Position.Y, pos.Z)
-    
-    pcall(function()
-        root.CFrame = CFrame.new(pos, targetRoot.Position)
-    end)
-    
-    State.LastTeleportTime = now
-    return true
-end
-
-local function PressKey(key)
-    if type(key) ~= "string" then return end
-    
-    local keyMap = {
-        Q = Enum.KeyCode.Q, E = Enum.KeyCode.E, R = Enum.KeyCode.R,
-        T = Enum.KeyCode.T, Y = Enum.KeyCode.Y, F = Enum.KeyCode.F,
-        Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C,
-        V = Enum.KeyCode.V, B = Enum.KeyCode.B, J = Enum.KeyCode.J
-    }
-    
-    local enumKey = keyMap[key]
-    if not enumKey and key ~= "M1" then return end
-    
-    if key == "M1" then
-        pcall(function()
-            VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, true, nil, nil)
-            task.wait(0.05)
-            VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, false, nil, nil)
-        end)
-        State.Timers["M1"] = tick() + Settings.SkillCooldowns["M1"]
-        return
-    end
-    
-    pcall(function()
-        VirtualInputManager:SendKeyEvent(true, enumKey, false, game)
-        task.wait(0.05)
-        VirtualInputManager:SendKeyEvent(false, enumKey, false, game)
-    end)
-    
-    State.Timers[key] = tick() + (Settings.SkillCooldowns[key] or 0.5)
-end
-
-local function PressM1()
-    pcall(function()
-        VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, true, nil, nil)
-        task.wait(0.05)
-        VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, false, nil, nil)
-    end)
-end
-
-print("[ABD] Part 13/27 - Teleport & Key Press Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 14/27
-    SKILL ROTATION WITH ROUNDS
-    ============================================================
-]]
-
-local function ExecuteSkillRound()
-    local now = tick()
-    local round = Settings.SkillRounds[State.CurrentRound]
-    if not round then
-        State.CurrentRound = 1
-        round = Settings.SkillRounds[1]
-    end
-    
-    local anyExecuted = false
-    
-    for _, key in ipairs(round) do
-        if State.Skills[key] and now >= State.Timers[key] then
-            PressKey(key)
-            anyExecuted = true
-            task.wait(0.05)
-        end
-    end
-    
-    State.CurrentRound = State.CurrentRound + 1
-    if State.CurrentRound > #Settings.SkillRounds then
-        State.CurrentRound = 1
-    end
-    
-    return anyExecuted
-end
-
-local function ExecuteRotation()
-    return ExecuteSkillRound()
-end
-
-print("[ABD] Part 14/27 - Skill Rotation Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 15/27
-    KILL AURA - SAFE
-    ============================================================
-]]
-
-local function DoKillAura()
-    if not State.Aura then return end
-    
-    local target = State.Target
-    if not target or not target.Parent then
-        target = GetBossByIndex(State.SelectedIndex) or GetClosestBoss()
-        State.Target = target
-    end
-    
-    if not target then return end
-    
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local root = GetRoot(char)
-    local targetRoot = GetRoot(target)
-    local targetHum = GetHumanoid(target)
-    
-    if not root or not targetRoot or not targetHum then return end
-    if targetHum.Health <= 0 then return end
-    
-    local dist = (root.Position - targetRoot.Position).Magnitude
-    
-    -- Only teleport if within range
-    if dist <= Settings.MaxAuraRange then
-        -- Teleport behind
-        if State.Teleport then
-            TeleportBehind(target)
-        end
-        
-        -- Deal damage using DamageEvent
-        local damageEvent = GetDamageEvent()
-        if damageEvent then
+task.spawn(function()
+    while true do
+        task.wait(1.0)
+        if _G.AutoRollStand then
             pcall(function()
-                damageEvent:FireServer(targetHum, targetRoot.CFrame, Settings.DamageAmount, 0, Vector3.new(0,0,0), "Normal", 0)
-            end)
-        end
-        
-        -- Execute skills
-        ExecuteRotation()
-    end
-end
-
-local function FaceTarget(Target)
-    if not Target then return end
-    
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local root = GetRoot(char)
-    local targetRoot = GetRoot(Target)
-    
-    if not root or not targetRoot then return end
-    
-    pcall(function()
-        local look = CFrame.new(root.Position, targetRoot.Position)
-        root.CFrame = CFrame.new(root.Position, look.LookVector + root.Position)
-    end)
-end
-
-print("[ABD] Part 15/27 - Kill Aura Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 16/27
-    AUTO CLICK M1
-    ============================================================
-]]
-
-local function DoAutoClickM1()
-    if not State.AutoClickM1 then return end
-    
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local root = GetRoot(char)
-    if not root then return end
-    
-    local target = nil
-    if State.SelectedIndex > 0 and State.SelectedIndex <= #State.Bosses then
-        target = GetBossByIndex(State.SelectedIndex)
-    end
-    if not target then
-        target = GetClosestBoss()
-    end
-    
-    if not target then return end
-    
-    local targetRoot = GetRoot(target)
-    if not targetRoot then return end
-    
-    local dist = (root.Position - targetRoot.Position).Magnitude
-    
-    if dist <= 20 then
-        pcall(function()
-            VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, true, nil, nil)
-            task.wait(0.05)
-            VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, false, nil, nil)
-        end)
-        
-        local damageEvent = GetDamageEvent()
-        if damageEvent then
-            local targetHum = GetHumanoid(target)
-            if targetHum and targetHum.Health > 0 then
-                pcall(function()
-                    damageEvent:FireServer(targetHum, targetRoot.CFrame, 50, 0, Vector3.new(0,0,0), "Normal", 0)
-                end)
-            end
-        end
-    end
-end
-
-print("[ABD] Part 16/27 - Auto Click M1 Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 17/27
-    MAIN LOOP
-    ============================================================
-]]
-
-local function MainLoop()
-    if not State.Enabled then return end
-    
-    -- Auto summon stand
-    AutoSummonStand()
-    
-    -- Auto Rokakaka
-    AutoRokakakaLoop()
-    
-    -- Auto Arrow
-    AutoArrowLoop()
-    
-    -- Scan bosses
-    if tick() % Settings.ScanInterval < 0.05 then
-        ScanAllBosses()
-    end
-    
-    -- Scan for stand
-    if tick() % Settings.StandScanInterval < 0.05 then
-        ScanForStand()
-    end
-    
-    -- Select target
-    if State.SelectedIndex > 0 and State.SelectedIndex <= #State.Bosses then
-        local selected = GetBossByIndex(State.SelectedIndex)
-        if selected and selected.Parent and IsAlive(selected) then
-            State.Target = selected
-        else
-            State.Target = GetClosestBoss()
-        end
-    else
-        State.Target = GetClosestBoss()
-    end
-    
-    -- Combat
-    if State.Target then
-        FaceTarget(State.Target)
-        DoKillAura()
-    end
-    
-    -- Update status
-    local targetName = State.Target and State.Target.Name or "None"
-    if #targetName > 12 then targetName = string.sub(targetName, 1, 10) .. ".." end
-    local roundNum = State.CurrentRound or 1
-    State.StatusText = string.format("Stand: %s | Target: %s | Round: %d/%d", 
-        State.StandName, targetName, roundNum, #Settings.SkillRounds)
-end
-
-print("[ABD] Part 17/27 - Main Loop Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 18/27
-    UI - MAIN FRAME
-    ============================================================
-]]
-
-local UI = {}
-local screenRef = nil
-local frameRef = nil
-local toggleButton = nil
-
-function UI:Create()
-    local gui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not gui then
-        gui = Instance.new("PlayerGui")
-        gui.Parent = LocalPlayer
-        task.wait(0.1)
-    end
-    
-    local old = gui:FindFirstChild("ABD_Main")
-    if old then old:Destroy() end
-    
-    local screen = Instance.new("ScreenGui")
-    screen.Name = "ABD_Main"
-    screen.Parent = gui
-    screen.ResetOnSpawn = false
-    screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenRef = screen
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 576, 0, 420)
-    frame.Position = UDim2.new(0, 10, 0, 30)
-    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
-    frame.BackgroundTransparency = 0.1
-    frame.BorderSizePixel = 0
-    frame.Parent = screen
-    frame.Active = true
-    frame.Draggable = true
-    frameRef = frame
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = frame
-    
-    local border = Instance.new("Frame")
-    border.Size = UDim2.new(1, 0, 1, 0)
-    border.BackgroundTransparency = 1
-    border.Parent = frame
-    
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(120, 80, 255)
-    stroke.Thickness = 1.5
-    stroke.Transparency = 0.3
-    stroke.Parent = border
-    
-    print("[ABD] Part 18/27 - Main Frame Created")
-    return screen, frame
-end
-
-print("[ABD] Part 18/27 - UI Main Frame Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 19/27
-    UI - FLOATING BUTTON & TOP
-    ============================================================
-]]
-
-local function CreateFloatingButton(screen)
-    local floatBtn = Instance.new("TextButton")
-    floatBtn.Size = UDim2.new(0, 50, 0, 50)
-    floatBtn.Position = UDim2.new(0, 10, 0, 10)
-    floatBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
-    floatBtn.Text = "⚡"
-    floatBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
-    floatBtn.Font = Enum.Font.GothamBold
-    floatBtn.TextSize = 24
-    floatBtn.Parent = screen
-    floatBtn.ZIndex = 999
-    floatBtn.Active = true
-    floatBtn.Draggable = true
-    
-    local fcorner = Instance.new("UICorner")
-    fcorner.CornerRadius = UDim.new(0, 25)
-    fcorner.Parent = floatBtn
-    
-    return floatBtn
-end
-
-local function CreateTopSection(frame)
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0, 160, 0, 32)
-    title.Position = UDim2.new(0, 10, 0, 5)
-    title.BackgroundTransparency = 1
-    title.Text = "⚡ ABD v3.5"
-    title.TextColor3 = Color3.fromRGB(255, 200, 50)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 17
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = frame
-    
-    local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0, 90, 0, 32)
-    toggle.Position = UDim2.new(0, 175, 0, 5)
-    toggle.BackgroundColor3 = Color3.fromRGB(30, 130, 30)
-    toggle.Text = "▶ START"
-    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggle.Font = Enum.Font.GothamBold
-    toggle.TextSize = 14
-    toggle.Parent = frame
-    
-    local tcorner = Instance.new("UICorner")
-    tcorner.CornerRadius = UDim.new(0, 5)
-    tcorner.Parent = toggle
-    
-    toggleButton = toggle
-    
-    local standBox = Instance.new("Frame")
-    standBox.Size = UDim2.new(0, 280, 0, 32)
-    standBox.Position = UDim2.new(0, 275, 0, 5)
-    standBox.BackgroundColor3 = Color3.fromRGB(25, 20, 50)
-    standBox.BackgroundTransparency = 0.5
-    standBox.Parent = frame
-    
-    local sc = Instance.new("UICorner")
-    sc.CornerRadius = UDim.new(0, 4)
-    sc.Parent = standBox
-    
-    local standLabel = Instance.new("TextLabel")
-    standLabel.Size = UDim2.new(1, -5, 1, 0)
-    standLabel.Position = UDim2.new(0, 5, 0, 0)
-    standLabel.BackgroundTransparency = 1
-    standLabel.Text = "🔄 Stand: None"
-    standLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-    standLabel.Font = Enum.Font.Gotham
-    standLabel.TextSize = 12
-    standLabel.TextXAlignment = Enum.TextXAlignment.Left
-    standLabel.Parent = standBox
-    
-    return toggle, standLabel
-end
-
-print("[ABD] Part 19/27 - UI Floating & Top Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 20/27
-    UI - BOSS LIST & SKILL GRID
-    ============================================================
-]]
-
-local function CreateBossList(frame)
-    local bossBox = Instance.new("Frame")
-    bossBox.Size = UDim2.new(0, 230, 0, 200)
-    bossBox.Position = UDim2.new(0, 10, 0, 48)
-    bossBox.BackgroundColor3 = Color3.fromRGB(18, 18, 38)
-    bossBox.BackgroundTransparency = 0.4
-    bossBox.Parent = frame
-    
-    local bcorner = Instance.new("UICorner")
-    bcorner.CornerRadius = UDim.new(0, 5)
-    bcorner.Parent = bossBox
-    
-    local blabel = Instance.new("TextLabel")
-    blabel.Size = UDim2.new(0.65, 0, 0, 22)
-    blabel.Position = UDim2.new(0, 5, 0, 2)
-    blabel.BackgroundTransparency = 1
-    blabel.Text = "🎯 BOSS LIST"
-    blabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-    blabel.Font = Enum.Font.GothamBold
-    blabel.TextSize = 12
-    blabel.TextXAlignment = Enum.TextXAlignment.Left
-    blabel.Parent = bossBox
-    
-    local countLabel = Instance.new("TextLabel")
-    countLabel.Size = UDim2.new(0.35, 0, 0, 22)
-    countLabel.Position = UDim2.new(0.65, 0, 0, 2)
-    countLabel.BackgroundTransparency = 1
-    countLabel.Text = "Total: 0"
-    countLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
-    countLabel.Font = Enum.Font.Gotham
-    countLabel.TextSize = 11
-    countLabel.TextXAlignment = Enum.TextXAlignment.Right
-    countLabel.Parent = bossBox
-    
-    local listFrame = Instance.new("ScrollingFrame")
-    listFrame.Size = UDim2.new(1, -4, 0, 168)
-    listFrame.Position = UDim2.new(0, 2, 0, 26)
-    listFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
-    listFrame.BackgroundTransparency = 0.5
-    listFrame.BorderSizePixel = 0
-    listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    listFrame.ScrollBarThickness = 4
-    listFrame.Parent = bossBox
-    
-    local lcorner = Instance.new("UICorner")
-    lcorner.CornerRadius = UDim.new(0, 3)
-    lcorner.Parent = listFrame
-    
-    local listContainer = Instance.new("Frame")
-    listContainer.Size = UDim2.new(1, 0, 0, 0)
-    listContainer.BackgroundTransparency = 1
-    listContainer.Parent = listFrame
-    
-    return listContainer, listFrame, countLabel
-end
-
-local function CreateSkillGrid(frame)
-    local gridBox = Instance.new("Frame")
-    gridBox.Size = UDim2.new(0, 300, 0, 200)
-    gridBox.Position = UDim2.new(0, 250, 0, 48)
-    gridBox.BackgroundColor3 = Color3.fromRGB(18, 18, 38)
-    gridBox.BackgroundTransparency = 0.4
-    gridBox.Parent = frame
-    
-    local gcorner = Instance.new("UICorner")
-    gcorner.CornerRadius = UDim.new(0, 5)
-    gcorner.Parent = gridBox
-    
-    local slabel = Instance.new("TextLabel")
-    slabel.Size = UDim2.new(1, 0, 0, 22)
-    slabel.Position = UDim2.new(0, 5, 0, 2)
-    slabel.BackgroundTransparency = 1
-    slabel.Text = "⚔️ SKILLS (Tap to toggle)"
-    slabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-    slabel.Font = Enum.Font.GothamBold
-    slabel.TextSize = 12
-    slabel.TextXAlignment = Enum.TextXAlignment.Left
-    slabel.Parent = gridBox
-    
-    local gridScroll = Instance.new("ScrollingFrame")
-    gridScroll.Size = UDim2.new(1, -4, 0, 168)
-    gridScroll.Position = UDim2.new(0, 2, 0, 26)
-    gridScroll.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
-    gridScroll.BackgroundTransparency = 0.5
-    gridScroll.BorderSizePixel = 0
-    gridScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    gridScroll.ScrollBarThickness = 4
-    gridScroll.Parent = gridBox
-    
-    local gscorner = Instance.new("UICorner")
-    gscorner.CornerRadius = UDim.new(0, 3)
-    gscorner.Parent = gridScroll
-    
-    local gridContainer = Instance.new("Frame")
-    gridContainer.Size = UDim2.new(1, 0, 0, 0)
-    gridContainer.BackgroundTransparency = 1
-    gridContainer.Parent = gridScroll
-    
-    local btns = {}
-    local keys = {"Q","E","R","T","Y","F","Z","X","C","V","B","J","M1"}
-    local cols = 4
-    local size = 32
-    local space = 5
-    local yOffset = 0
-    
-    for i, key in ipairs(keys) do
-        local row = math.floor((i-1) / cols)
-        local col = (i-1) % cols
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, size, 0, size)
-        btn.Position = UDim2.new(0, col * (size + space), 0, row * (size + space))
-        btn.BackgroundColor3 = State.Skills[key] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
-        
-        if key == "M1" then
-            btn.BackgroundColor3 = State.Skills[key] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
-            btn.Text = "🖱"
-        else
-            btn.Text = key
-        end
-        
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 13
-        btn.Parent = gridContainer
-        
-        local sc2 = Instance.new("UICorner")
-        sc2.CornerRadius = UDim.new(0, 4)
-        sc2.Parent = btn
-        
-        btn.MouseButton1Click:Connect(function()
-            State.Skills[key] = not State.Skills[key]
-            btn.BackgroundColor3 = State.Skills[key] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
-        end)
-        
-        btns[key] = btn
-        yOffset = yOffset + size + space
-    end
-    
-    gridContainer.Size = UDim2.new(1, 0, 0, yOffset)
-    gridScroll.CanvasSize = UDim2.new(0, 0, 0, yOffset)
-    
-    return btns
-end
-
-print("[ABD] Part 20/27 - UI Boss List & Skill Grid Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 21/27
-    UI - CONTROLS
-    ============================================================
-]]
-
-local function CreateControls(frame)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -20, 0, 34)
-    row.Position = UDim2.new(0, 10, 0, 256)
-    row.BackgroundTransparency = 1
-    row.Parent = frame
-    
-    local tp = Instance.new("TextButton")
-    tp.Size = UDim2.new(0, 85, 0, 30)
-    tp.Position = UDim2.new(0, 0, 0, 0)
-    tp.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    tp.Text = "📱 TP"
-    tp.TextColor3 = Color3.fromRGB(200, 200, 200)
-    tp.Font = Enum.Font.GothamBold
-    tp.TextSize = 12
-    tp.Parent = row
-    
-    local tpc = Instance.new("UICorner")
-    tpc.CornerRadius = UDim.new(0, 4)
-    tpc.Parent = tp
-    
-    tp.MouseButton1Click:Connect(function()
-        State.Teleport = not State.Teleport
-        tp.BackgroundColor3 = State.Teleport and Color3.fromRGB(40, 130, 200) or Color3.fromRGB(45, 45, 65)
-    end)
-    
-    local aura = Instance.new("TextButton")
-    aura.Size = UDim2.new(0, 85, 0, 30)
-    aura.Position = UDim2.new(0, 90, 0, 0)
-    aura.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    aura.Text = "⚔️ AURA"
-    aura.TextColor3 = Color3.fromRGB(200, 200, 200)
-    aura.Font = Enum.Font.GothamBold
-    aura.TextSize = 12
-    aura.Parent = row
-    
-    local aurac = Instance.new("UICorner")
-    aurac.CornerRadius = UDim.new(0, 4)
-    aurac.Parent = aura
-    
-    aura.MouseButton1Click:Connect(function()
-        State.Aura = not State.Aura
-        aura.BackgroundColor3 = State.Aura and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(45, 45, 65)
-    end)
-    
-    local scan = Instance.new("TextButton")
-    scan.Size = UDim2.new(0, 85, 0, 30)
-    scan.Position = UDim2.new(0, 180, 0, 0)
-    scan.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    scan.Text = "🔄 SCAN"
-    scan.TextColor3 = Color3.fromRGB(200, 200, 200)
-    scan.Font = Enum.Font.GothamBold
-    scan.TextSize = 12
-    scan.Parent = row
-    
-    local scanc = Instance.new("UICorner")
-    scanc.CornerRadius = UDim.new(0, 4)
-    scanc.Parent = scan
-    
-    scan.MouseButton1Click:Connect(function()
-        ScanAllBosses()
-        ScanForStand()
-        UpdateBossList()
-        UpdateStandDisplay()
-    end)
-    
-    local summonBtn = Instance.new("TextButton")
-    summonBtn.Size = UDim2.new(0, 100, 0, 30)
-    summonBtn.Position = UDim2.new(0, 270, 0, 0)
-    summonBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 80)
-    summonBtn.Text = "🔮 SUMMON"
-    summonBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    summonBtn.Font = Enum.Font.GothamBold
-    summonBtn.TextSize = 12
-    summonBtn.Parent = row
-    
-    local sumCorner = Instance.new("UICorner")
-    sumCorner.CornerRadius = UDim.new(0, 4)
-    sumCorner.Parent = summonBtn
-    
-    summonBtn.MouseButton1Click:Connect(function()
-        State.LastSummonTime = 0
-        ForceSummonStand()
-        task.wait(0.5)
-        ScanForStand()
-        UpdateStandDisplay()
-    end)
-    
-    local rokaBtn = Instance.new("TextButton")
-    rokaBtn.Size = UDim2.new(0, 85, 0, 30)
-    rokaBtn.Position = UDim2.new(0, 375, 0, 0)
-    rokaBtn.BackgroundColor3 = Color3.fromRGB(60, 50, 30)
-    rokaBtn.Text = "🍎 ROKA"
-    rokaBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    rokaBtn.Font = Enum.Font.GothamBold
-    rokaBtn.TextSize = 12
-    rokaBtn.Parent = row
-    
-    local rokaCorner = Instance.new("UICorner")
-    rokaCorner.CornerRadius = UDim.new(0, 4)
-    rokaCorner.Parent = rokaBtn
-    
-    rokaBtn.MouseButton1Click:Connect(function()
-        pcall(UseRokakakaFruit)
-    end)
-    
-    local arrowBtn = Instance.new("TextButton")
-    arrowBtn.Size = UDim2.new(0, 85, 0, 30)
-    arrowBtn.Position = UDim2.new(0, 465, 0, 0)
-    arrowBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
-    arrowBtn.Text = "🏹 ARROW"
-    arrowBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    arrowBtn.Font = Enum.Font.GothamBold
-    arrowBtn.TextSize = 12
-    arrowBtn.Parent = row
-    
-    local arrowCorner = Instance.new("UICorner")
-    arrowCorner.CornerRadius = UDim.new(0, 4)
-    arrowCorner.Parent = arrowBtn
-    
-    arrowBtn.MouseButton1Click:Connect(function()
-        pcall(UseArrow)
-    end)
-    
-    local m1Btn = Instance.new("TextButton")
-    m1Btn.Size = UDim2.new(0, 100, 0, 30)
-    m1Btn.Position = UDim2.new(0, 555, 0, 0)
-    m1Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    m1Btn.Text = "🖱 M1"
-    m1Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    m1Btn.Font = Enum.Font.GothamBold
-    m1Btn.TextSize = 12
-    m1Btn.Parent = row
-    
-    local m1Corner = Instance.new("UICorner")
-    m1Corner.CornerRadius = UDim.new(0, 4)
-    m1Corner.Parent = m1Btn
-    
-    m1Btn.MouseButton1Click:Connect(function()
-        State.AutoClickM1 = not State.AutoClickM1
-        m1Btn.BackgroundColor3 = State.AutoClickM1 and Color3.fromRGB(40, 180, 40) or Color3.fromRGB(45, 45, 65)
-        m1Btn.Text = State.AutoClickM1 and "🖱 M1 ON" or "🖱 M1"
-    end)
-    
-    return tp, aura, scan, summonBtn, rokaBtn, arrowBtn, m1Btn
-end
-
-print("[ABD] Part 21/27 - UI Controls Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 22/27
-    UI - DELAY SETTINGS
-    ============================================================
-]]
-
-local function CreateDelaySettings(frame)
-    local delayBox = Instance.new("Frame")
-    delayBox.Size = UDim2.new(0, 556, 0, 32)
-    delayBox.Position = UDim2.new(0, 10, 0, 296)
-    delayBox.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-    delayBox.BackgroundTransparency = 0.4
-    delayBox.Parent = frame
-    
-    local dbCorner = Instance.new("UICorner")
-    dbCorner.CornerRadius = UDim.new(0, 4)
-    dbCorner.Parent = delayBox
-    
-    local dlabel = Instance.new("TextLabel")
-    dlabel.Size = UDim2.new(0, 70, 1, 0)
-    dlabel.Position = UDim2.new(0, 5, 0, 0)
-    dlabel.BackgroundTransparency = 1
-    dlabel.Text = "⏱ Delays:"
-    dlabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-    dlabel.Font = Enum.Font.GothamBold
-    dlabel.TextSize = 11
-    dlabel.TextXAlignment = Enum.TextXAlignment.Left
-    dlabel.Parent = delayBox
-    
-    local rokaLabel = Instance.new("TextLabel")
-    rokaLabel.Size = UDim2.new(0, 60, 1, 0)
-    rokaLabel.Position = UDim2.new(0, 80, 0, 0)
-    rokaLabel.BackgroundTransparency = 1
-    rokaLabel.Text = "Roka: 2s"
-    rokaLabel.TextColor3 = Color3.fromRGB(150, 200, 150)
-    rokaLabel.Font = Enum.Font.Gotham
-    rokaLabel.TextSize = 10
-    rokaLabel.TextXAlignment = Enum.TextXAlignment.Left
-    rokaLabel.Parent = delayBox
-    
-    local rokaSlider = Instance.new("TextButton")
-    rokaSlider.Size = UDim2.new(0, 50, 0, 22)
-    rokaSlider.Position = UDim2.new(0, 145, 0, 5)
-    rokaSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    rokaSlider.Text = "2s"
-    rokaSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-    rokaSlider.Font = Enum.Font.GothamBold
-    rokaSlider.TextSize = 10
-    rokaSlider.Parent = delayBox
-    
-    local rsCorner = Instance.new("UICorner")
-    rsCorner.CornerRadius = UDim.new(0, 3)
-    rsCorner.Parent = rokaSlider
-    
-    rokaSlider.MouseButton1Click:Connect(function()
-        local delays = {1, 2, 3, 4, 5}
-        local current = Settings.RokakakaDelay
-        local idx = 1
-        for i, d in ipairs(delays) do
-            if d == current then idx = i end
-        end
-        idx = idx + 1
-        if idx > #delays then idx = 1 end
-        Settings.RokakakaDelay = delays[idx]
-        rokaSlider.Text = delays[idx] .. "s"
-        rokaLabel.Text = "Roka: " .. delays[idx] .. "s"
-    end)
-    
-    local arrowLabel = Instance.new("TextLabel")
-    arrowLabel.Size = UDim2.new(0, 60, 1, 0)
-    arrowLabel.Position = UDim2.new(0, 205, 0, 0)
-    arrowLabel.BackgroundTransparency = 1
-    arrowLabel.Text = "Arrow: 3s"
-    arrowLabel.TextColor3 = Color3.fromRGB(200, 150, 200)
-    arrowLabel.Font = Enum.Font.Gotham
-    arrowLabel.TextSize = 10
-    arrowLabel.TextXAlignment = Enum.TextXAlignment.Left
-    arrowLabel.Parent = delayBox
-    
-    local arrowSlider = Instance.new("TextButton")
-    arrowSlider.Size = UDim2.new(0, 50, 0, 22)
-    arrowSlider.Position = UDim2.new(0, 270, 0, 5)
-    arrowSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    arrowSlider.Text = "3s"
-    arrowSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-    arrowSlider.Font = Enum.Font.GothamBold
-    arrowSlider.TextSize = 10
-    arrowSlider.Parent = delayBox
-    
-    local asCorner = Instance.new("UICorner")
-    asCorner.CornerRadius = UDim.new(0, 3)
-    asCorner.Parent = arrowSlider
-    
-    arrowSlider.MouseButton1Click:Connect(function()
-        local delays = {2, 3, 4, 5, 6}
-        local current = Settings.ArrowDelay
-        local idx = 1
-        for i, d in ipairs(delays) do
-            if d == current then idx = i end
-        end
-        idx = idx + 1
-        if idx > #delays then idx = 1 end
-        Settings.ArrowDelay = delays[idx]
-        arrowSlider.Text = delays[idx] .. "s"
-        arrowLabel.Text = "Arrow: " .. delays[idx] .. "s"
-    end)
-    
-    local sumLabel = Instance.new("TextLabel")
-    sumLabel.Size = UDim2.new(0, 70, 1, 0)
-    sumLabel.Position = UDim2.new(0, 330, 0, 0)
-    sumLabel.BackgroundTransparency = 1
-    sumLabel.Text = "Summon: 1.5s"
-    sumLabel.TextColor3 = Color3.fromRGB(150, 200, 200)
-    sumLabel.Font = Enum.Font.Gotham
-    sumLabel.TextSize = 10
-    sumLabel.TextXAlignment = Enum.TextXAlignment.Left
-    sumLabel.Parent = delayBox
-    
-    local sumSlider = Instance.new("TextButton")
-    sumSlider.Size = UDim2.new(0, 50, 0, 22)
-    sumSlider.Position = UDim2.new(0, 405, 0, 5)
-    sumSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    sumSlider.Text = "1.5s"
-    sumSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-    sumSlider.Font = Enum.Font.GothamBold
-    sumSlider.TextSize = 10
-    sumSlider.Parent = delayBox
-    
-    local ssCorner = Instance.new("UICorner")
-    ssCorner.CornerRadius = UDim.new(0, 3)
-    ssCorner.Parent = sumSlider
-    
-    sumSlider.MouseButton1Click:Connect(function()
-        local delays = {0.5, 1.0, 1.5, 2.0, 2.5, 3.0}
-        local current = Settings.SummonDelay
-        local idx = 1
-        for i, d in ipairs(delays) do
-            if d == current then idx = i end
-        end
-        idx = idx + 1
-        if idx > #delays then idx = 1 end
-        Settings.SummonDelay = delays[idx]
-        sumSlider.Text = delays[idx] .. "s"
-        sumLabel.Text = "Summon: " .. delays[idx] .. "s"
-    end)
-    
-    local autoRoka = Instance.new("TextButton")
-    autoRoka.Size = UDim2.new(0, 50, 0, 24)
-    autoRoka.Position = UDim2.new(0, 465, 0, 4)
-    autoRoka.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    autoRoka.Text = "🔄R"
-    autoRoka.TextColor3 = Color3.fromRGB(200, 200, 200)
-    autoRoka.Font = Enum.Font.GothamBold
-    autoRoka.TextSize = 9
-    autoRoka.Parent = delayBox
-    
-    local arCorner = Instance.new("UICorner")
-    arCorner.CornerRadius = UDim.new(0, 3)
-    arCorner.Parent = autoRoka
-    
-    autoRoka.MouseButton1Click:Connect(function()
-        State.AutoRokakaka = not State.AutoRokakaka
-        autoRoka.BackgroundColor3 = State.AutoRokakaka and Color3.fromRGB(40, 180, 40) or Color3.fromRGB(45, 45, 65)
-    end)
-    
-    local autoArrow = Instance.new("TextButton")
-    autoArrow.Size = UDim2.new(0, 50, 0, 24)
-    autoArrow.Position = UDim2.new(0, 520, 0, 4)
-    autoArrow.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    autoArrow.Text = "🔄A"
-    autoArrow.TextColor3 = Color3.fromRGB(200, 200, 200)
-    autoArrow.Font = Enum.Font.GothamBold
-    autoArrow.TextSize = 9
-    autoArrow.Parent = delayBox
-    
-    local aaCorner = Instance.new("UICorner")
-    aaCorner.CornerRadius = UDim.new(0, 3)
-    aaCorner.Parent = autoArrow
-    
-    autoArrow.MouseButton1Click:Connect(function()
-        State.AutoArrow = not State.AutoArrow
-        autoArrow.BackgroundColor3 = State.AutoArrow and Color3.fromRGB(40, 180, 40) or Color3.fromRGB(45, 45, 65)
-    end)
-    
-    return rokaSlider, arrowSlider, sumSlider, autoRoka, autoArrow
-end
-
-print("[ABD] Part 22/27 - UI Delay Settings Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 23/27
-    UI - STATUS & UPDATE FUNCTIONS
-    ============================================================
-]]
-
-local function CreateStatus(frame)
-    local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1, -20, 0, 28)
-    status.Position = UDim2.new(0, 10, 0, 380)
-    status.BackgroundTransparency = 1
-    status.Text = "Status: Ready"
-    status.TextColor3 = Color3.fromRGB(150, 150, 200)
-    status.Font = Enum.Font.Gotham
-    status.TextSize = 10
-    status.TextWrapped = true
-    status.TextXAlignment = Enum.TextXAlignment.Left
-    status.Parent = frame
-    
-    return status
-end
-
--- Variables for UI updates
-local listContainer, listFrame, countLabel
-local standLabel, statusLabel
-local floatButton
-
-local function UpdateBossList()
-    if not listContainer then return end
-    
-    for _, child in ipairs(listContainer:GetChildren()) do
-        child:Destroy()
-    end
-    
-    local total = #State.Bosses
-    if countLabel then
-        countLabel.Text = "Total: " .. total
-    end
-    
-    local yOffset = 0
-    local btnHeight = 24
-    
-    if total == 0 then
-        local empty = Instance.new("TextLabel")
-        empty.Size = UDim2.new(1, 0, 0, btnHeight)
-        empty.Position = UDim2.new(0, 0, 0, yOffset)
-        empty.BackgroundTransparency = 1
-        empty.Text = "No bosses found"
-        empty.TextColor3 = Color3.fromRGB(150, 150, 180)
-        empty.Font = Enum.Font.Gotham
-        empty.TextSize = 10
-        empty.Parent = listContainer
-        yOffset = yOffset + btnHeight
-    else
-        for i, name in ipairs(State.BossNames) do
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, -4, 0, btnHeight)
-            btn.Position = UDim2.new(0, 2, 0, yOffset)
-            btn.BackgroundColor3 = (i == State.SelectedIndex) and 
-                Color3.fromRGB(60, 40, 120) or Color3.fromRGB(30, 30, 50)
-            btn.Text = name
-            btn.TextColor3 = (i == State.SelectedIndex) and 
-                Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 10
-            btn.TextXAlignment = Enum.TextXAlignment.Left
-            btn.Parent = listContainer
-            
-            local bcorner2 = Instance.new("UICorner")
-            bcorner2.CornerRadius = UDim.new(0, 3)
-            bcorner2.Parent = btn
-            
-            btn.MouseButton1Click:Connect(function()
-                State.SelectedIndex = i
-                State.Target = GetBossByIndex(i)
-                UpdateBossList()
-            end)
-            
-            yOffset = yOffset + btnHeight + 2
-        end
-    end
-    
-    listContainer.Size = UDim2.new(1, 0, 0, yOffset)
-    if listFrame then
-        listFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
-    end
-end
-
-local function UpdateStandDisplay()
-    if not standLabel then return end
-    standLabel.Text = "🔄 Stand: " .. State.StandName
-    if State.HasStand then
-        standLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-    else
-        standLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-    end
-end
-
-local function UpdateStatus()
-    if not statusLabel then return end
-    statusLabel.Text = "Status: " .. State.StatusText
-end
-
-print("[ABD] Part 23/27 - UI Status & Updates Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 24/27
-    UI - COMPLETE CREATION
-    ============================================================
-]]
-
-function UI:CreateComplete()
-    local screen, frame = self:Create()
-    
-    floatButton = CreateFloatingButton(screen)
-    
-    local toggle, stand = CreateTopSection(frame)
-    toggleButton = toggle
-    standLabel = stand
-    
-    local container, lframe, count = CreateBossList(frame)
-    listContainer = container
-    listFrame = lframe
-    countLabel = count
-    
-    local btns = CreateSkillGrid(frame)
-    
-    local rokaSlider, arrowSlider, sumSlider, autoRoka, autoArrow = CreateDelaySettings(frame)
-    
-    local tp, aura, scan, summonBtn, rokaBtn, arrowBtn, m1Btn = CreateControls(frame)
-    
-    statusLabel = CreateStatus(frame)
-    
-    floatButton.MouseButton1Click:Connect(function()
-        frame.Visible = not frame.Visible
-        State.MenuVisible = frame.Visible
-        floatButton.BackgroundColor3 = frame.Visible and 
-            Color3.fromRGB(30, 30, 60) or Color3.fromRGB(60, 30, 30)
-    end)
-    
-    toggle.MouseButton1Click:Connect(function()
-        State.Enabled = not State.Enabled
-        toggle.Text = State.Enabled and "⏹ STOP" or "▶ START"
-        toggle.BackgroundColor3 = State.Enabled and 
-            Color3.fromRGB(200, 40, 40) or Color3.fromRGB(30, 130, 30)
-        
-        if State.Enabled then
-            State.RotationIndex = 1
-            State.CurrentRound = 1
-            ScanAllBosses()
-            ScanForStand()
-            UpdateBossList()
-            UpdateStandDisplay()
-            State.Target = GetBossByIndex(State.SelectedIndex) or GetClosestBoss()
-            
-            task.wait(0.3)
-            AutoSummonStand()
-            
-            if State.LoopConnection then
-                State.LoopConnection:Disconnect()
-            end
-            if State.StandLoopConnection then
-                State.StandLoopConnection:Disconnect()
-            end
-            if State.M1LoopConnection then
-                State.M1LoopConnection:Disconnect()
-            end
-            
-            State.LoopConnection = RunService.Heartbeat:Connect(function()
-                if not State.Enabled then return end
-                pcall(MainLoop)
-                pcall(UpdateStatus)
+                InfoLabel.Text = "Đang ăn Rokakaka Fruit..."
+                local usedRoka = UseItem("Rokakaka Fruit") or UseItem("Rokakaka") or UseItem("Roka")
+                task.wait(0.5)
                 
-                if tick() % Settings.ScanInterval < 0.05 then
-                    pcall(UpdateBossList)
-                    pcall(UpdateStandDisplay)
+                if _G.AutoRollStand then
+                    BypassYesButton()
+                    task.wait(1.0)
+                end
+                
+                if _G.AutoRollStand then
+                    InfoLabel.Text = "Đang đâm Mũi Tên (Arrow)..."
+                    local usedArrow = UseItem("Stand Arrow") or UseItem("Arrow") or UseItem("Mysterious Arrow")
+                    
+                    if usedArrow then
+                        InfoLabel.Text = "Đợi " .. tostring(_G.RollDelay) .. "s xem Stand..."
+                        task.wait(_G.RollDelay)
+                    else
+                        task.wait(1.0)
+                    end
+                end
+                
+                if not usedRoka and not usedArrow then
+                    InfoLabel.Text = "[THÔNG BÁO]: Hết Roka hoặc Mũi Tên!"
+                else
+                    InfoLabel.Text = "CHẾ ĐỘ GACHA TUẦN TỰ"
                 end
             end)
-            
-            State.StandLoopConnection = RunService.Heartbeat:Connect(function()
-                if not State.Enabled then return end
-                if tick() % Settings.StandScanInterval < 0.05 then
-                    pcall(ScanForStand)
-                    pcall(UpdateStandDisplay)
-                end
-            end)
-            
-            State.M1LoopConnection = RunService.Heartbeat:Connect(function()
-                if not State.Enabled then return end
-                if tick() % 0.3 < 0.05 then
-                    pcall(DoAutoClickM1)
-                end
-            end)
-        else
-            if State.LoopConnection then
-                State.LoopConnection:Disconnect()
-                State.LoopConnection = nil
-            end
-            if State.StandLoopConnection then
-                State.StandLoopConnection:Disconnect()
-                State.StandLoopConnection = nil
-            end
-            if State.M1LoopConnection then
-                State.M1LoopConnection:Disconnect()
-                State.M1LoopConnection = nil
-            end
-            State.StatusText = "Stopped"
-            UpdateStatus()
         end
-    end)
-    
-    WaitForCharacter()
-    ScanAllBosses()
-    ScanForStand()
-    UpdateBossList()
-    UpdateStandDisplay()
-    UpdateStatus()
-    
-    print("[ABD] Complete UI Created Successfully!")
-    return screen
-end
-
-print("[ABD] Part 24/27 - UI Complete Creation Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 25/27
-    CHARACTER ADDED EVENT
-    ============================================================
-]]
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    State.IsDead = false
-    State.SummonAttempts = 0
-    State.LastSummonTime = 0
-    State.LastTeleportTime = 0
-    
-    task.wait(1.5)
-    if Settings.AutoSummonEnabled then
-        pcall(AutoSummonStand)
     end
-    
-    pcall(function()
-        ScanForStand()
-        UpdateStandDisplay()
-        ScanAllBosses()
-        UpdateBossList()
-    end)
 end)
-
-print("[ABD] Part 25/27 - Character Added Event Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 26/27
-    INITIALIZATION
-    ============================================================
-]]
-
-local function Initialize()
-    WaitForCharacter()
-    
-    ScanForStand()
-    
-    if Settings.AutoSummonEnabled then
-        task.wait(0.5)
-        AutoSummonStand()
-    end
-    
-    local success = false
-    for attempt = 1, 3 do
-        success, err = pcall(UI.CreateComplete, UI)
-        if success then
-            print("[ABD] UI Loaded on attempt " .. attempt)
-            break
-        else
-            warn("[ABD] Attempt " .. attempt .. " failed: " .. tostring(err))
-            task.wait(1)
-        end
-    end
-    
-    if not success then
-        warn("[ABD] All UI attempts failed.")
-    end
-    
-    print("[ABD] ===== SCRIPT LOADED SUCCESSFULLY =====")
-    print("[ABD] Game ID: " .. game.PlaceId)
-    print("[ABD] Features: Auto-scan, Boss List, Stand Detection, Skill Rotation")
-    print("[ABD] Features: Auto Rokakaka, Auto Arrow, Auto M1")
-    print("[ABD] Features: Auto Summon on Start/Death")
-    print("[ABD] Press START to begin | ⚡ button to hide/show menu")
-end
-
-print("[ABD] Part 26/27 - Initialization Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 27/27
-    START & COMPLETE
-    ============================================================
-]]
-
-pcall(Initialize)
-
-print("[ABD] Part 27/27 - Start & Complete Loaded")
-print("[ABD] ===== ALL 27 PARTS LOADED SUCCESSFULLY =====")
-print("[ABD] ===== ABD v3.5 READY ===== ")
