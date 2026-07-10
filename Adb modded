@@ -295,7 +295,7 @@ local SkillRounds = { {"E","R"}, {"T","Y"}, {"F","Z"}, {"X","C"}, {"V","B","J"} 
 
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        game:GetService("RunService").Stepped:Wait()
         if _G.KillAura then
             pcall(function()
                 local character = LocalPlayer.Character
@@ -305,8 +305,15 @@ task.spawn(function()
                     if not _G.KillAura then break end
                     if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
                         if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
+                            
+                            task.spawn(function()
+                                while _G.KillAura and npc.Humanoid.Health > 0 and npc.Parent == workspace do
+                                    game:GetService("RunService").Heartbeat:Wait()
+                                    rootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
+                                end
+                            end)
+
                             while _G.KillAura and npc.Humanoid.Health > 0 and npc.Parent == workspace do
-                                rootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
                                 if DamageEvent then DamageEvent:FireServer(npc.Humanoid, npc.HumanoidRootPart.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0) end
                                 
                                 for roundIdx, Round in ipairs(SkillRounds) do
@@ -316,7 +323,7 @@ task.spawn(function()
                                         if _G.ActiveSkills[key] and KeyMapping[key] then
                                             pcall(function()
                                                 VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
-                                                task.wait(0.05)
+                                                task.wait(0.02)
                                                 VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
                                             end)
                                             anySkillUsed = true
@@ -326,7 +333,7 @@ task.spawn(function()
                                         task.wait(_G.ComboDelays[roundIdx])
                                     end
                                 end
-                                task.wait(0.02)
+                                task.wait(0.01)
                             end
                         end
                     end
