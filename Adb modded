@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 
 print("[ABD] Part 1/21 - Services Loaded")
@@ -24,11 +25,11 @@ local Settings = {
     TeleportDistance = 4,
     AuraRadius = 35,
     ScanInterval = 0.3,
-    StandScanInterval = 1.0,
+    StandScanInterval = 0.5,
     AutoSummonEnabled = true,
     MenuVisible = true,
     SkillCooldowns = {
-        Q = 2.0, E = 0.4, R = 0.8, T = 1.2,
+        Q = 1.5, E = 0.4, R = 0.8, T = 1.2,
         V = 0.6, B = 1.0, J = 0.8, H = 1.0, F = 0.5,
         Z = 1.0, C = 0.8, M1 = 0.2
     }
@@ -61,7 +62,8 @@ local State = {
     Skills = {},
     Timers = {},
     MenuVisible = true,
-    StatusText = "Ready"
+    StatusText = "Ready",
+    LastSummonTime = 0
 }
 
 print("[ABD] Part 3/21 - State Loaded")
@@ -84,7 +86,7 @@ print("[ABD] Part 4/21 - Skills Initialized")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 5/21
-    UTILITY - GET HUMAN & ROOT
+    UTILITY FUNCTIONS
     ============================================================
 ]]
 
@@ -101,6 +103,18 @@ end
 local function IsAlive(Char)
     local hum = GetHumanoid(Char)
     return hum and hum.Health and hum.Health > 0
+end
+
+local function WaitForCharacter()
+    local attempts = 0
+    while attempts < 20 do
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            return true
+        end
+        task.wait(0.3)
+        attempts = attempts + 1
+    end
+    return false
 end
 
 print("[ABD] Part 5/21 - Utilities Loaded")
@@ -149,11 +163,11 @@ print("[ABD] Part 6/21 - Boss Detection Loaded")
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 7/21
-    BOSS SCANNER - PLAYERS
+    BOSS SCANNER
     ============================================================
 ]]
 
-local function ScanPlayers()
+local function ScanAllBosses()
     local bosses = {}
     local names = {}
     
@@ -172,22 +186,7 @@ local function ScanPlayers()
         end
     end
     
-    return bosses, names
-end
-
-print("[ABD] Part 7/21 - Player Scanner Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 8/21
-    BOSS SCANNER - WORKSPACE
-    ============================================================
-]]
-
-local function ScanWorkspace()
-    local bosses = {}
-    local names = {}
-    
-    for _, obj in ipairs(workspace:GetChildren()) do
+    for _, obj in ipairs(Workspace:GetChildren()) do
         if obj:IsA("Model") and obj.Name ~= LocalPlayer.Name and IsBoss(obj) and IsAlive(obj) then
             local alreadyAdded = false
             for _, boss in ipairs(bosses) do
@@ -208,36 +207,8 @@ local function ScanWorkspace()
         end
     end
     
-    return bosses, names
-end
-
-print("[ABD] Part 8/21 - Workspace Scanner Loaded")
---[[
-    ============================================================
-    ABD OPTIMIZED SCRIPT - PART 9/21
-    BOSS SCANNER - MAIN
-    ============================================================
-]]
-
-local function ScanAllBosses()
-    local bosses1, names1 = ScanPlayers()
-    local bosses2, names2 = ScanWorkspace()
-    
-    local allBosses = {}
-    local allNames = {}
-    
-    for i, boss in ipairs(bosses1) do
-        table.insert(allBosses, boss)
-        table.insert(allNames, names1[i])
-    end
-    
-    for i, boss in ipairs(bosses2) do
-        table.insert(allBosses, boss)
-        table.insert(allNames, names2[i])
-    end
-    
-    State.Bosses = allBosses
-    State.BossNames = allNames
+    State.Bosses = bosses
+    State.BossNames = names
     
     if State.SelectedIndex > #State.Bosses then
         State.SelectedIndex = math.max(1, #State.Bosses)
@@ -246,7 +217,7 @@ local function ScanAllBosses()
         State.SelectedIndex = 1
     end
     
-    return allBosses, allNames
+    return bosses, names
 end
 
 local function GetBossByIndex(index)
@@ -279,11 +250,11 @@ local function GetClosestBoss()
     return closest
 end
 
-print("[ABD] Part 9/21 - Main Scanner Loaded")
+print("[ABD] Part 7/21 - Boss Scanner Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 10/21
-    STAND DETECTION
+    ABD OPTIMIZED SCRIPT - PART 8/21
+    STAND DETECTION - IMPROVED
     ============================================================
 ]]
 
@@ -292,49 +263,66 @@ local function ScanForStand()
     if not char then 
         State.HasStand = false
         State.StandName = "None"
-        return 
+        return false
     end
     
     local standFound = false
     local standName = "None"
     local standData = {}
     
+    -- Check character's children thoroughly
     for _, child in ipairs(char:GetChildren()) do
         local name = child.Name or ""
         local lower = name:lower()
         
+        -- Check for stand indicators in names
         if lower:find("stand") or lower:find("ability") or lower:find("power") or
-           lower:find("summon") or lower:find("spirit") or lower:find("ghost") then
+           lower:find("summon") or lower:find("spirit") or lower:find("ghost") or
+           lower:find("requiem") or lower:find("over heaven") or lower:find("act") then
             standFound = true
             standName = child.Name
             table.insert(standData, child)
         end
         
+        -- Check for stand model
         if child:IsA("Model") then
             for _, sub in ipairs(child:GetChildren()) do
-                if sub:IsA("BasePart") and (sub.Name:lower():find("stand") or sub.Name:lower():find("body")) then
-                    standFound = true
-                    if standName == "None" then
-                        standName = child.Name
+                if sub:IsA("BasePart") then
+                    local subName = sub.Name:lower()
+                    if subName:find("stand") or subName:find("body") or 
+                       subName:find("arm") or subName:find("leg") or subName:find("head") then
+                        standFound = true
+                        if standName == "None" then
+                            standName = child.Name
+                        end
+                        table.insert(standData, child)
+                        break
                     end
-                    table.insert(standData, child)
-                    break
                 end
             end
         end
+        
+        -- Check for Humanoid with special name
+        if child:IsA("Humanoid") and lower:find("stand") then
+            standFound = true
+            standName = child.Name
+            table.insert(standData, child)
+        end
     end
     
+    -- Check workspace for stand nearby
     if not standFound then
         local charRoot = GetRoot(char)
         if charRoot then
-            for _, obj in ipairs(workspace:GetChildren()) do
+            for _, obj in ipairs(Workspace:GetChildren()) do
                 if obj:IsA("Model") and obj ~= char then
                     local objName = obj.Name:lower()
-                    if objName:find("stand") or objName:find("ability") or objName:find("spirit") then
+                    if objName:find("stand") or objName:find("ability") or objName:find("spirit") or
+                       objName:find("requiem") or objName:find("heaven") then
                         local objRoot = GetRoot(obj)
                         if objRoot then
                             local dist = (charRoot.Position - objRoot.Position).Magnitude
-                            if dist < 20 then
+                            if dist < 25 then
                                 standFound = true
                                 standName = obj.Name
                                 table.insert(standData, obj)
@@ -347,18 +335,34 @@ local function ScanForStand()
         end
     end
     
+    -- If still not found, check for Tool in backpack
+    if not standFound then
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, child in ipairs(backpack:GetChildren()) do
+                local name = child.Name:lower()
+                if name:find("stand") or name:find("ability") or name:find("power") then
+                    standFound = true
+                    standName = child.Name
+                    table.insert(standData, child)
+                    break
+                end
+            end
+        end
+    end
+    
     State.HasStand = standFound
-    State.StandName = standName
+    State.StandName = standFound and standName or "None"
     State.StandData = standData
     
     return standFound, standName, standData
 end
 
-print("[ABD] Part 10/21 - Stand Detection Loaded")
+print("[ABD] Part 8/21 - Stand Detection Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 11/21
-    AUTO SUMMON STAND
+    ABD OPTIMIZED SCRIPT - PART 9/21
+    AUTO SUMMON STAND - FIXED
     ============================================================
 ]]
 
@@ -366,42 +370,80 @@ local function AutoSummonStand()
     if not Settings.AutoSummonEnabled then return end
     
     local char = LocalPlayer.Character
-    if not char then return end
+    if not char then 
+        WaitForCharacter()
+        return 
+    end
     
     local hum = GetHumanoid(char)
     if not hum then return end
     
+    -- Check if dead
     if hum.Health and hum.Health <= 0 then
         State.IsDead = true
         return
     end
     
-    if State.IsDead or not State.HasStand then
-        if State.IsDead then
-            State.IsDead = false
-            task.wait(1.5)
+    -- Scan for stand
+    ScanForStand()
+    
+    -- Check if need to summon
+    local needSummon = false
+    
+    -- If dead and respawned
+    if State.IsDead then
+        State.IsDead = false
+        needSummon = true
+        task.wait(0.5)
+    end
+    
+    -- If no stand detected
+    if not State.HasStand then
+        needSummon = true
+    end
+    
+    -- Check if stand is in backpack but not summoned
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        for _, child in ipairs(backpack:GetChildren()) do
+            local name = child.Name:lower()
+            if name:find("stand") or name:find("ability") or name:find("power") then
+                needSummon = true
+                break
+            end
         end
-        
+    end
+    
+    -- Perform summon
+    if needSummon then
         local now = tick()
-        if now >= State.Timers["Q"] then
+        if now - State.LastSummonTime >= Settings.SkillCooldowns["Q"] then
             pcall(function()
                 VirtualInputManager:SendKeyEvent(true, "Q", false, nil)
                 task.wait(0.05)
                 VirtualInputManager:SendKeyEvent(false, "Q", false, nil)
             end)
-            State.Timers["Q"] = now + Settings.SkillCooldowns["Q"]
+            State.LastSummonTime = now
             State.StatusText = "Summoning Stand..."
+            State.Timers["Q"] = now + Settings.SkillCooldowns["Q"]
             
-            task.wait(0.5)
+            -- Wait and check again
+            task.wait(0.8)
             ScanForStand()
+            
+            if State.HasStand then
+                State.StatusText = "Stand summoned: " .. State.StandName
+            else
+                State.StatusText = "Stand summon failed, retrying..."
+            end
         end
     end
 end
 
-print("[ABD] Part 11/21 - Auto Summon Loaded")
+print("[ABD] Part 9/21 - Auto Summon Fixed Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 12/21
+    ABD OPTIMIZED SCRIPT - PART 10/21
     TELEPORT & KEY PRESS
     ============================================================
 ]]
@@ -450,10 +492,10 @@ local function PressKey(key)
     State.Timers[key] = tick() + (Settings.SkillCooldowns[key] or 0.5)
 end
 
-print("[ABD] Part 12/21 - Teleport & Key Press Loaded")
+print("[ABD] Part 10/21 - Teleport & Key Press Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 13/21
+    ABD OPTIMIZED SCRIPT - PART 11/21
     SKILL ROTATION
     ============================================================
 ]]
@@ -495,10 +537,10 @@ local function ExecuteRotation()
     return false
 end
 
-print("[ABD] Part 13/21 - Skill Rotation Loaded")
+print("[ABD] Part 11/21 - Skill Rotation Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 14/21
+    ABD OPTIMIZED SCRIPT - PART 12/21
     KILL AURA & FACE TARGET
     ============================================================
 ]]
@@ -550,10 +592,10 @@ local function FaceTarget(Target)
     end)
 end
 
-print("[ABD] Part 14/21 - Kill Aura & Face Target Loaded")
+print("[ABD] Part 12/21 - Kill Aura & Face Target Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 15/21
+    ABD OPTIMIZED SCRIPT - PART 13/21
     MAIN LOOP
     ============================================================
 ]]
@@ -561,16 +603,20 @@ print("[ABD] Part 14/21 - Kill Aura & Face Target Loaded")
 local function MainLoop()
     if not State.Enabled then return end
     
+    -- Auto summon stand (priority)
     AutoSummonStand()
     
+    -- Scan bosses
     if tick() % Settings.ScanInterval < 0.05 then
         ScanAllBosses()
     end
     
+    -- Scan for stand continuously
     if tick() % Settings.StandScanInterval < 0.05 then
         ScanForStand()
     end
     
+    -- Select target
     if State.SelectedIndex > 0 and State.SelectedIndex <= #State.Bosses then
         local selected = GetBossByIndex(State.SelectedIndex)
         if selected and selected.Parent and IsAlive(selected) then
@@ -582,6 +628,7 @@ local function MainLoop()
         State.Target = GetClosestBoss()
     end
     
+    -- Combat
     if State.Target then
         FaceTarget(State.Target)
         
@@ -604,6 +651,7 @@ local function MainLoop()
         end
     end
     
+    -- Update status
     local targetName = State.Target and State.Target.Name or "None"
     if #targetName > 12 then targetName = string.sub(targetName, 1, 10) .. ".." end
     local nextSkill = RotationSkills[State.RotationIndex] or "-"
@@ -611,17 +659,18 @@ local function MainLoop()
         State.StandName, targetName, nextSkill)
 end
 
-print("[ABD] Part 15/21 - Main Loop Loaded")
+print("[ABD] Part 13/21 - Main Loop Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 16/21
-    UI - MAIN FRAME (EXPANDED)
+    ABD OPTIMIZED SCRIPT - PART 14/21
+    UI - MAIN FRAME (HORIZONTAL)
     ============================================================
 ]]
 
 local UI = {}
 local screenRef = nil
 local frameRef = nil
+local toggleButton = nil
 
 function UI:Create()
     local gui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -641,10 +690,10 @@ function UI:Create()
     screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     screenRef = screen
     
-    -- LARGER FRAME
+    -- HORIZONTAL FRAME - Wider
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 350, 0, 560)
-    frame.Position = UDim2.new(0, 10, 0, 20)
+    frame.Size = UDim2.new(0, 480, 0, 250)
+    frame.Position = UDim2.new(0, 10, 0, 50)
     frame.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
     frame.BackgroundTransparency = 0.1
     frame.BorderSizePixel = 0
@@ -654,7 +703,7 @@ function UI:Create()
     frameRef = frame
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
+    corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = frame
     
     -- Border Glow
@@ -669,49 +718,81 @@ function UI:Create()
     stroke.Transparency = 0.3
     stroke.Parent = border
     
-    print("[ABD] Part 16/21 - Main Frame Created")
+    print("[ABD] Part 14/21 - Main Frame Created")
     return screen, frame
 end
 
-print("[ABD] Part 16/21 - UI Main Frame Loaded")
+print("[ABD] Part 14/21 - UI Main Frame Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 17/21
-    UI - TITLE, TOGGLE, STAND INFO
+    ABD OPTIMIZED SCRIPT - PART 15/21
+    UI - FLOATING TOGGLE BUTTON
+    ============================================================
+]]
+
+local function CreateFloatingButton(screen)
+    local floatBtn = Instance.new("TextButton")
+    floatBtn.Size = UDim2.new(0, 50, 0, 50)
+    floatBtn.Position = UDim2.new(0, 10, 0, 10)
+    floatBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
+    floatBtn.Text = "⚡"
+    floatBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
+    floatBtn.Font = Enum.Font.GothamBold
+    floatBtn.TextSize = 24
+    floatBtn.Parent = screen
+    floatBtn.ZIndex = 999
+    floatBtn.Active = true
+    floatBtn.Draggable = true
+    
+    local fcorner = Instance.new("UICorner")
+    fcorner.CornerRadius = UDim.new(0, 25)
+    fcorner.Parent = floatBtn
+    
+    return floatBtn
+end
+
+print("[ABD] Part 15/21 - Floating Button Loaded")
+--[[
+    ============================================================
+    ABD OPTIMIZED SCRIPT - PART 16/21
+    UI - TOP SECTION
     ============================================================
 ]]
 
 local function CreateTopSection(frame)
     -- Title
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 36)
-    title.Position = UDim2.new(0, 0, 0, 4)
+    title.Size = UDim2.new(0, 150, 0, 30)
+    title.Position = UDim2.new(0, 10, 0, 5)
     title.BackgroundTransparency = 1
-    title.Text = "⚡ ABD OPTIMIZED v3.2"
+    title.Text = "⚡ ABD v3.2"
     title.TextColor3 = Color3.fromRGB(255, 200, 50)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = frame
     
     -- Toggle Button
     local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0.9, 0, 0, 40)
-    toggle.Position = UDim2.new(0.05, 0, 0, 44)
+    toggle.Size = UDim2.new(0, 80, 0, 30)
+    toggle.Position = UDim2.new(0, 160, 0, 5)
     toggle.BackgroundColor3 = Color3.fromRGB(30, 130, 30)
     toggle.Text = "▶ START"
     toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggle.Font = Enum.Font.GothamBold
-    toggle.TextSize = 16
+    toggle.TextSize = 13
     toggle.Parent = frame
     
     local tcorner = Instance.new("UICorner")
-    tcorner.CornerRadius = UDim.new(0, 6)
+    tcorner.CornerRadius = UDim.new(0, 5)
     tcorner.Parent = toggle
     
-    -- Stand Info - Wider
+    toggleButton = toggle
+    
+    -- Stand Info
     local standBox = Instance.new("Frame")
-    standBox.Size = UDim2.new(0.9, 0, 0, 34)
-    standBox.Position = UDim2.new(0.05, 0, 0, 90)
+    standBox.Size = UDim2.new(0, 220, 0, 30)
+    standBox.Position = UDim2.new(0, 250, 0, 5)
     standBox.BackgroundColor3 = Color3.fromRGB(25, 20, 50)
     standBox.BackgroundTransparency = 0.5
     standBox.Parent = frame
@@ -721,96 +802,75 @@ local function CreateTopSection(frame)
     sc.Parent = standBox
     
     local standLabel = Instance.new("TextLabel")
-    standLabel.Size = UDim2.new(0.7, 0, 1, 0)
-    standLabel.Position = UDim2.new(0.02, 0, 0, 0)
+    standLabel.Size = UDim2.new(1, -5, 1, 0)
+    standLabel.Position = UDim2.new(0, 5, 0, 0)
     standLabel.BackgroundTransparency = 1
     standLabel.Text = "🔄 Stand: None"
     standLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
     standLabel.Font = Enum.Font.Gotham
-    standLabel.TextSize = 12
+    standLabel.TextSize = 11
     standLabel.TextXAlignment = Enum.TextXAlignment.Left
     standLabel.Parent = standBox
     
-    -- Menu Toggle Button
-    local menuToggle = Instance.new("TextButton")
-    menuToggle.Size = UDim2.new(0.2, 0, 1, -4)
-    menuToggle.Position = UDim2.new(0.78, 0, 0, 2)
-    menuToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
-    menuToggle.Text = "Hide"
-    menuToggle.TextColor3 = Color3.fromRGB(200, 200, 200)
-    menuToggle.Font = Enum.Font.GothamBold
-    menuToggle.TextSize = 10
-    menuToggle.Parent = standBox
-    
-    local mtCorner = Instance.new("UICorner")
-    mtCorner.CornerRadius = UDim.new(0, 3)
-    mtCorner.Parent = menuToggle
-    
-    return toggle, standLabel, menuToggle
+    return toggle, standLabel
 end
 
-print("[ABD] Part 17/21 - UI Top Section Loaded")
+print("[ABD] Part 16/21 - UI Top Section Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 18/21
-    UI - BOSS LIST (EXPANDED)
+    ABD OPTIMIZED SCRIPT - PART 17/21
+    UI - BOSS LIST (HORIZONTAL)
     ============================================================
 ]]
 
 local function CreateBossList(frame)
     local bossBox = Instance.new("Frame")
-    bossBox.Size = UDim2.new(0.9, 0, 0, 140)
-    bossBox.Position = UDim2.new(0.05, 0, 0, 130)
+    bossBox.Size = UDim2.new(0, 200, 0, 155)
+    bossBox.Position = UDim2.new(0, 10, 0, 45)
     bossBox.BackgroundColor3 = Color3.fromRGB(18, 18, 38)
     bossBox.BackgroundTransparency = 0.4
     bossBox.Parent = frame
     
     local bcorner = Instance.new("UICorner")
-    bcorner.CornerRadius = UDim.new(0, 6)
+    bcorner.CornerRadius = UDim.new(0, 5)
     bcorner.Parent = bossBox
     
-    -- Title bar with count
-    local titleBar = Instance.new("Frame")
-    titleBar.Size = UDim2.new(1, 0, 0, 22)
-    titleBar.Position = UDim2.new(0, 0, 0, 2)
-    titleBar.BackgroundTransparency = 1
-    titleBar.Parent = bossBox
-    
+    -- Title bar
     local blabel = Instance.new("TextLabel")
-    blabel.Size = UDim2.new(0.7, 0, 1, 0)
-    blabel.Position = UDim2.new(0, 0, 0, 0)
+    blabel.Size = UDim2.new(0.7, 0, 0, 20)
+    blabel.Position = UDim2.new(0, 5, 0, 2)
     blabel.BackgroundTransparency = 1
     blabel.Text = "🎯 BOSS LIST"
     blabel.TextColor3 = Color3.fromRGB(180, 180, 220)
     blabel.Font = Enum.Font.GothamBold
-    blabel.TextSize = 12
+    blabel.TextSize = 11
     blabel.TextXAlignment = Enum.TextXAlignment.Left
-    blabel.Parent = titleBar
+    blabel.Parent = bossBox
     
     local countLabel = Instance.new("TextLabel")
-    countLabel.Size = UDim2.new(0.3, 0, 1, 0)
-    countLabel.Position = UDim2.new(0.7, 0, 0, 0)
+    countLabel.Size = UDim2.new(0.3, 0, 0, 20)
+    countLabel.Position = UDim2.new(0.7, 0, 0, 2)
     countLabel.BackgroundTransparency = 1
     countLabel.Text = "Total: 0"
     countLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
     countLabel.Font = Enum.Font.Gotham
-    countLabel.TextSize = 11
+    countLabel.TextSize = 10
     countLabel.TextXAlignment = Enum.TextXAlignment.Right
-    countLabel.Parent = titleBar
+    countLabel.Parent = bossBox
     
-    -- List Frame - Larger
+    -- List
     local listFrame = Instance.new("ScrollingFrame")
-    listFrame.Size = UDim2.new(1, 0, 0, 108)
-    listFrame.Position = UDim2.new(0, 0, 0, 26)
+    listFrame.Size = UDim2.new(1, -4, 0, 125)
+    listFrame.Position = UDim2.new(0, 2, 0, 24)
     listFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
     listFrame.BackgroundTransparency = 0.5
     listFrame.BorderSizePixel = 0
     listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    listFrame.ScrollBarThickness = 4
+    listFrame.ScrollBarThickness = 3
     listFrame.Parent = bossBox
     
     local lcorner = Instance.new("UICorner")
-    lcorner.CornerRadius = UDim.new(0, 4)
+    lcorner.CornerRadius = UDim.new(0, 3)
     lcorner.Parent = listFrame
     
     local listContainer = Instance.new("Frame")
@@ -821,25 +881,37 @@ local function CreateBossList(frame)
     return listContainer, listFrame, countLabel
 end
 
-print("[ABD] Part 18/21 - UI Boss List Loaded")
+print("[ABD] Part 17/21 - UI Boss List Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 19/21
-    UI - SKILL GRID (EXPANDED)
+    ABD OPTIMIZED SCRIPT - PART 18/21
+    UI - SKILL GRID (HORIZONTAL)
     ============================================================
 ]]
 
 local function CreateSkillGrid(frame)
     local grid = Instance.new("Frame")
-    grid.Size = UDim2.new(0.9, 0, 0, 140)
-    grid.Position = UDim2.new(0.05, 0, 0, 278)
+    grid.Size = UDim2.new(0, 240, 0, 155)
+    grid.Position = UDim2.new(0, 220, 0, 45)
     grid.BackgroundTransparency = 1
     grid.Parent = frame
+    
+    -- Skill label
+    local slabel = Instance.new("TextLabel")
+    slabel.Size = UDim2.new(1, 0, 0, 20)
+    slabel.Position = UDim2.new(0, 0, 0, 0)
+    slabel.BackgroundTransparency = 1
+    slabel.Text = "⚔️ SKILLS (Tap to toggle)"
+    slabel.TextColor3 = Color3.fromRGB(180, 180, 220)
+    slabel.Font = Enum.Font.GothamBold
+    slabel.TextSize = 11
+    slabel.TextXAlignment = Enum.TextXAlignment.Left
+    slabel.Parent = grid
     
     local btns = {}
     local keys = {"Q","E","R","T","V","B","J","H","F","Z","C","M1"}
     local cols = 4
-    local size = 38
+    local size = 30
     local space = 5
     
     for i, key in ipairs(keys) do
@@ -847,7 +919,7 @@ local function CreateSkillGrid(frame)
         local col = (i-1) % cols
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0, size, 0, size)
-        btn.Position = UDim2.new(0, col * (size + space), 0, row * (size + space))
+        btn.Position = UDim2.new(0, col * (size + space), 0, 25 + row * (size + space))
         btn.BackgroundColor3 = Color3.fromRGB(50, 50, 75)
         
         if key == "M1" then
@@ -859,7 +931,7 @@ local function CreateSkillGrid(frame)
         
         btn.TextColor3 = Color3.fromRGB(200, 200, 200)
         btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 15
+        btn.TextSize = 13
         btn.Parent = grid
         
         local sc2 = Instance.new("UICorner")
@@ -879,10 +951,10 @@ local function CreateSkillGrid(frame)
     return btns
 end
 
-print("[ABD] Part 19/21 - UI Skill Grid Loaded")
+print("[ABD] Part 18/21 - UI Skill Grid Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 20/21
+    ABD OPTIMIZED SCRIPT - PART 19/21
     UI - CONTROLS & STATUS
     ============================================================
 ]]
@@ -890,31 +962,31 @@ print("[ABD] Part 19/21 - UI Skill Grid Loaded")
 local function CreateControls(frame)
     -- Rotation Text
     local rot = Instance.new("TextLabel")
-    rot.Size = UDim2.new(0.9, 0, 0, 20)
-    rot.Position = UDim2.new(0.05, 0, 0, 425)
+    rot.Size = UDim2.new(0, 460, 0, 18)
+    rot.Position = UDim2.new(0, 10, 0, 210)
     rot.BackgroundTransparency = 1
-    rot.Text = "E → R → T → V → B → J → H → F → Z → C → M1"
+    rot.Text = "E→R→T→V→B→J→H→F→Z→C→M1"
     rot.TextColor3 = Color3.fromRGB(100, 200, 100)
     rot.Font = Enum.Font.Gotham
     rot.TextSize = 9
     rot.Parent = frame
     
-    -- Toggle Row - Wider
+    -- Controls Row
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(0.9, 0, 0, 36)
-    row.Position = UDim2.new(0.05, 0, 0, 448)
+    row.Size = UDim2.new(1, -20, 0, 28)
+    row.Position = UDim2.new(0, 10, 0, 172)
     row.BackgroundTransparency = 1
     row.Parent = frame
     
     -- Teleport
     local tp = Instance.new("TextButton")
-    tp.Size = UDim2.new(0.3, 0, 0, 32)
+    tp.Size = UDim2.new(0, 80, 0, 26)
     tp.Position = UDim2.new(0, 0, 0, 0)
     tp.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
     tp.Text = "📱 TP"
     tp.TextColor3 = Color3.fromRGB(200, 200, 200)
     tp.Font = Enum.Font.GothamBold
-    tp.TextSize = 12
+    tp.TextSize = 11
     tp.Parent = row
     
     local tpc = Instance.new("UICorner")
@@ -929,13 +1001,13 @@ local function CreateControls(frame)
     
     -- Aura
     local aura = Instance.new("TextButton")
-    aura.Size = UDim2.new(0.3, 0, 0, 32)
-    aura.Position = UDim2.new(0.35, 0, 0, 0)
+    aura.Size = UDim2.new(0, 80, 0, 26)
+    aura.Position = UDim2.new(0, 85, 0, 0)
     aura.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
     aura.Text = "⚔️ AURA"
     aura.TextColor3 = Color3.fromRGB(200, 200, 200)
     aura.Font = Enum.Font.GothamBold
-    aura.TextSize = 12
+    aura.TextSize = 11
     aura.Parent = row
     
     local aurac = Instance.new("UICorner")
@@ -948,15 +1020,15 @@ local function CreateControls(frame)
             Color3.fromRGB(200, 40, 40) or Color3.fromRGB(45, 45, 65)
     end)
     
-    -- Scan Button
+    -- Scan
     local scan = Instance.new("TextButton")
-    scan.Size = UDim2.new(0.3, 0, 0, 32)
-    scan.Position = UDim2.new(0.70, 0, 0, 0)
+    scan.Size = UDim2.new(0, 80, 0, 26)
+    scan.Position = UDim2.new(0, 170, 0, 0)
     scan.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
     scan.Text = "🔄 SCAN"
     scan.TextColor3 = Color3.fromRGB(200, 200, 200)
     scan.Font = Enum.Font.GothamBold
-    scan.TextSize = 12
+    scan.TextSize = 11
     scan.Parent = row
     
     local scanc = Instance.new("UICorner")
@@ -970,55 +1042,58 @@ local function CreateControls(frame)
         UpdateStandDisplay()
     end)
     
-    -- Status - Larger
+    -- Respawn/Summon Stand button
+    local summonBtn = Instance.new("TextButton")
+    summonBtn.Size = UDim2.new(0, 100, 0, 26)
+    summonBtn.Position = UDim2.new(0, 255, 0, 0)
+    summonBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 80)
+    summonBtn.Text = "🔮 SUMMON"
+    summonBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    summonBtn.Font = Enum.Font.GothamBold
+    summonBtn.TextSize = 11
+    summonBtn.Parent = row
+    
+    local sumCorner = Instance.new("UICorner")
+    sumCorner.CornerRadius = UDim.new(0, 4)
+    sumCorner.Parent = summonBtn
+    
+    summonBtn.MouseButton1Click:Connect(function()
+        State.LastSummonTime = 0
+        AutoSummonStand()
+        task.wait(0.5)
+        ScanForStand()
+        UpdateStandDisplay()
+    end)
+    
+    -- Status
     local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(0.9, 0, 0, 36)
-    status.Position = UDim2.new(0.05, 0, 0, 490)
+    status.Size = UDim2.new(0, 360, 0, 20)
+    status.Position = UDim2.new(0, 10, 0, 228)
     status.BackgroundTransparency = 1
     status.Text = "Status: Ready"
     status.TextColor3 = Color3.fromRGB(150, 150, 200)
     status.Font = Enum.Font.Gotham
-    status.TextSize = 10
+    status.TextSize = 9
     status.TextWrapped = true
+    status.TextXAlignment = Enum.TextXAlignment.Left
     status.Parent = frame
     
-    -- Close Button
-    local close = Instance.new("TextButton")
-    close.Size = UDim2.new(0, 26, 0, 26)
-    close.Position = UDim2.new(1, -32, 0, 4)
-    close.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
-    close.Text = "✕"
-    close.TextColor3 = Color3.fromRGB(255, 200, 200)
-    close.Font = Enum.Font.GothamBold
-    close.TextSize = 14
-    close.Parent = frame
-    
-    local ccorner = Instance.new("UICorner")
-    ccorner.CornerRadius = UDim.new(0, 10)
-    ccorner.Parent = close
-    
-    close.MouseButton1Click:Connect(function()
-        screenRef.Enabled = not screenRef.Enabled
-        State.MenuVisible = screenRef.Enabled
-    end)
-    
-    return tp, aura, scan, status, close
+    return tp, aura, scan, summonBtn, status
 end
 
-print("[ABD] Part 20/21 - UI Controls & Status Loaded")
+print("[ABD] Part 19/21 - UI Controls Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 21/21
-    UI COMPLETE & INITIALIZATION
+    ABD OPTIMIZED SCRIPT - PART 20/21
+    UI - COMPLETE & UPDATE FUNCTIONS
     ============================================================
 ]]
 
 -- Variables for UI updates
 local listContainer, listFrame, countLabel
 local standLabel, statusLabel
-local toggleButton
+local floatButton
 
--- Update Functions
 local function UpdateBossList()
     if not listContainer then return end
     
@@ -1032,7 +1107,7 @@ local function UpdateBossList()
     end
     
     local yOffset = 0
-    local btnHeight = 26
+    local btnHeight = 22
     
     if total == 0 then
         local empty = Instance.new("TextLabel")
@@ -1042,7 +1117,7 @@ local function UpdateBossList()
         empty.Text = "No bosses found"
         empty.TextColor3 = Color3.fromRGB(150, 150, 180)
         empty.Font = Enum.Font.Gotham
-        empty.TextSize = 11
+        empty.TextSize = 10
         empty.Parent = listContainer
         yOffset = yOffset + btnHeight
     else
@@ -1056,7 +1131,7 @@ local function UpdateBossList()
             btn.TextColor3 = (i == State.SelectedIndex) and 
                 Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
             btn.Font = Enum.Font.Gotham
-            btn.TextSize = 10
+            btn.TextSize = 9
             btn.TextXAlignment = Enum.TextXAlignment.Left
             btn.Parent = listContainer
             
@@ -1092,37 +1167,50 @@ end
 
 local function UpdateStatus()
     if not statusLabel then return end
-    statusLabel.Text = State.StatusText
+    statusLabel.Text = "Status: " .. State.StatusText
 end
 
--- Complete UI Creation
+print("[ABD] Part 20/21 - UI Update Functions Loaded")
+--[[
+    ============================================================
+    ABD OPTIMIZED SCRIPT - PART 21/21
+    UI INITIALIZATION & START
+    ============================================================
+]]
+
 function UI:CreateComplete()
     local screen, frame = self:Create()
     
-    -- Create all sections
-    local toggle, stand, menuToggle = CreateTopSection(frame)
+    -- Floating button
+    floatButton = CreateFloatingButton(screen)
+    
+    -- Top section
+    local toggle, stand = CreateTopSection(frame)
     toggleButton = toggle
     standLabel = stand
     
+    -- Boss list
     local container, lframe, count = CreateBossList(frame)
     listContainer = container
     listFrame = lframe
     countLabel = count
     
+    -- Skill grid
     local btns = CreateSkillGrid(frame)
-    local tp, aura, scan, status, close = CreateControls(frame)
+    
+    -- Controls
+    local tp, aura, scan, summonBtn, status = CreateControls(frame)
     statusLabel = status
     
-    -- Menu Toggle Function
-    menuToggle.MouseButton1Click:Connect(function()
-        State.MenuVisible = not State.MenuVisible
-        frame.Visible = State.MenuVisible
-        menuToggle.Text = State.MenuVisible and "Hide" or "Show"
-        menuToggle.BackgroundColor3 = State.MenuVisible and 
-            Color3.fromRGB(40, 40, 70) or Color3.fromRGB(70, 40, 40)
+    -- Floating button toggle
+    floatButton.MouseButton1Click:Connect(function()
+        frame.Visible = not frame.Visible
+        State.MenuVisible = frame.Visible
+        floatButton.BackgroundColor3 = frame.Visible and 
+            Color3.fromRGB(30, 30, 60) or Color3.fromRGB(60, 30, 30)
     end)
     
-    -- Main Toggle
+    -- Main toggle
     toggle.MouseButton1Click:Connect(function()
         State.Enabled = not State.Enabled
         toggle.Text = State.Enabled and "⏹ STOP" or "▶ START"
@@ -1180,6 +1268,7 @@ function UI:CreateComplete()
     end)
     
     -- Initial scan
+    WaitForCharacter()
     ScanAllBosses()
     ScanForStand()
     UpdateBossList()
@@ -1192,13 +1281,7 @@ end
 
 -- Initialize
 local function Initialize()
-    for i = 1, 10 do
-        if LocalPlayer and LocalPlayer.Character and 
-           LocalPlayer.Character:FindFirstChild("Humanoid") then
-            break
-        end
-        task.wait(0.5)
-    end
+    WaitForCharacter()
     
     local success = false
     for attempt = 1, 3 do
@@ -1219,7 +1302,7 @@ local function Initialize()
     print("[ABD] ===== SCRIPT LOADED SUCCESSFULLY =====")
     print("[ABD] Game ID: " .. game.PlaceId)
     print("[ABD] Features: Auto-scan, Boss List, Stand Detection, Skill Rotation")
-    print("[ABD] Press START to begin | Hide/Show menu with Hide button")
+    print("[ABD] Press START to begin | ⚡ button to hide/show menu")
 end
 
 pcall(Initialize)
