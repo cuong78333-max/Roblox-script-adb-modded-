@@ -1,6 +1,6 @@
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 1/20
+    ABD OPTIMIZED SCRIPT - PART 1/21
     SERVICES & INITIALIZATION
     ============================================================
 ]]
@@ -12,10 +12,10 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
-print("[ABD] Part 1/20 - Services Loaded")
+print("[ABD] Part 1/21 - Services Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 2/20
+    ABD OPTIMIZED SCRIPT - PART 2/21
     CONFIGURATION
     ============================================================
 ]]
@@ -26,6 +26,7 @@ local Settings = {
     ScanInterval = 0.3,
     StandScanInterval = 1.0,
     AutoSummonEnabled = true,
+    MenuVisible = true,
     SkillCooldowns = {
         Q = 2.0, E = 0.4, R = 0.8, T = 1.2,
         V = 0.6, B = 1.0, J = 0.8, H = 1.0, F = 0.5,
@@ -33,10 +34,10 @@ local Settings = {
     }
 }
 
-print("[ABD] Part 2/20 - Config Loaded")
+print("[ABD] Part 2/21 - Config Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 3/20
+    ABD OPTIMIZED SCRIPT - PART 3/21
     STATE MANAGEMENT
     ============================================================
 ]]
@@ -59,15 +60,14 @@ local State = {
     StandData = {},
     Skills = {},
     Timers = {},
-    UIVisible = true,
-    BossListVisible = false,
+    MenuVisible = true,
     StatusText = "Ready"
 }
 
-print("[ABD] Part 3/20 - State Loaded")
+print("[ABD] Part 3/21 - State Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 4/20
+    ABD OPTIMIZED SCRIPT - PART 4/21
     SKILL INITIALIZATION
     ============================================================
 ]]
@@ -80,10 +80,10 @@ for _, skill in ipairs(AllSkills) do
     State.Timers[skill] = 0
 end
 
-print("[ABD] Part 4/20 - Skills Initialized")
+print("[ABD] Part 4/21 - Skills Initialized")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 5/20
+    ABD OPTIMIZED SCRIPT - PART 5/21
     UTILITY - GET HUMAN & ROOT
     ============================================================
 ]]
@@ -103,10 +103,10 @@ local function IsAlive(Char)
     return hum and hum.Health and hum.Health > 0
 end
 
-print("[ABD] Part 5/20 - Utilities Loaded")
+print("[ABD] Part 5/21 - Utilities Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 6/20
+    ABD OPTIMIZED SCRIPT - PART 6/21
     BOSS DETECTION
     ============================================================
 ]]
@@ -145,15 +145,15 @@ local function IsBoss(Char)
     return false
 end
 
-print("[ABD] Part 6/20 - Boss Detection Loaded")
+print("[ABD] Part 6/21 - Boss Detection Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 7/20
+    ABD OPTIMIZED SCRIPT - PART 7/21
     BOSS SCANNER - PLAYERS
     ============================================================
 ]]
 
-local function ScanBosses()
+local function ScanPlayers()
     local bosses = {}
     local names = {}
     
@@ -175,15 +175,15 @@ local function ScanBosses()
     return bosses, names
 end
 
-print("[ABD] Part 7/20 - Player Scanner Loaded")
+print("[ABD] Part 7/21 - Player Scanner Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 8/20
+    ABD OPTIMIZED SCRIPT - PART 8/21
     BOSS SCANNER - WORKSPACE
     ============================================================
 ]]
 
-local function ScanWorkspaceBosses()
+local function ScanWorkspace()
     local bosses = {}
     local names = {}
     
@@ -211,17 +211,17 @@ local function ScanWorkspaceBosses()
     return bosses, names
 end
 
-print("[ABD] Part 8/20 - Workspace Scanner Loaded")
+print("[ABD] Part 8/21 - Workspace Scanner Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 9/20
+    ABD OPTIMIZED SCRIPT - PART 9/21
     BOSS SCANNER - MAIN
     ============================================================
 ]]
 
 local function ScanAllBosses()
-    local bosses1, names1 = ScanBosses()
-    local bosses2, names2 = ScanWorkspaceBosses()
+    local bosses1, names1 = ScanPlayers()
+    local bosses2, names2 = ScanWorkspace()
     
     local allBosses = {}
     local allNames = {}
@@ -279,10 +279,10 @@ local function GetClosestBoss()
     return closest
 end
 
-print("[ABD] Part 9/20 - Main Scanner Loaded")
+print("[ABD] Part 9/21 - Main Scanner Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 10/20
+    ABD OPTIMIZED SCRIPT - PART 10/21
     STAND DETECTION
     ============================================================
 ]]
@@ -354,10 +354,10 @@ local function ScanForStand()
     return standFound, standName, standData
 end
 
-print("[ABD] Part 10/20 - Stand Detection Loaded")
+print("[ABD] Part 10/21 - Stand Detection Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 11/20
+    ABD OPTIMIZED SCRIPT - PART 11/21
     AUTO SUMMON STAND
     ============================================================
 ]]
@@ -398,10 +398,10 @@ local function AutoSummonStand()
     end
 end
 
-print("[ABD] Part 11/20 - Auto Summon Loaded")
+print("[ABD] Part 11/21 - Auto Summon Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 12/20
+    ABD OPTIMIZED SCRIPT - PART 12/21
     TELEPORT & KEY PRESS
     ============================================================
 ]]
@@ -450,10 +450,10 @@ local function PressKey(key)
     State.Timers[key] = tick() + (Settings.SkillCooldowns[key] or 0.5)
 end
 
-print("[ABD] Part 12/20 - Teleport & Key Press Loaded")
+print("[ABD] Part 12/21 - Teleport & Key Press Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 13/20
+    ABD OPTIMIZED SCRIPT - PART 13/21
     SKILL ROTATION
     ============================================================
 ]]
@@ -495,10 +495,10 @@ local function ExecuteRotation()
     return false
 end
 
-print("[ABD] Part 13/20 - Skill Rotation Loaded")
+print("[ABD] Part 13/21 - Skill Rotation Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 14/20
+    ABD OPTIMIZED SCRIPT - PART 14/21
     KILL AURA & FACE TARGET
     ============================================================
 ]]
@@ -550,10 +550,10 @@ local function FaceTarget(Target)
     end)
 end
 
-print("[ABD] Part 14/20 - Kill Aura & Face Target Loaded")
+print("[ABD] Part 14/21 - Kill Aura & Face Target Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 15/20
+    ABD OPTIMIZED SCRIPT - PART 15/21
     MAIN LOOP
     ============================================================
 ]]
@@ -611,15 +611,17 @@ local function MainLoop()
         State.StandName, targetName, nextSkill)
 end
 
-print("[ABD] Part 15/20 - Main Loop Loaded")
+print("[ABD] Part 15/21 - Main Loop Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 16/20
-    UI - MAIN FRAME
+    ABD OPTIMIZED SCRIPT - PART 16/21
+    UI - MAIN FRAME (EXPANDED)
     ============================================================
 ]]
 
 local UI = {}
+local screenRef = nil
+local frameRef = nil
 
 function UI:Create()
     local gui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -637,65 +639,79 @@ function UI:Create()
     screen.Parent = gui
     screen.ResetOnSpawn = false
     screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenRef = screen
     
+    -- LARGER FRAME
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 520)
-    frame.Position = UDim2.new(0, 10, 0, 30)
-    frame.BackgroundColor3 = Color3.fromRGB(8, 8, 22)
-    frame.BackgroundTransparency = 0.05
+    frame.Size = UDim2.new(0, 350, 0, 560)
+    frame.Position = UDim2.new(0, 10, 0, 20)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
+    frame.BackgroundTransparency = 0.1
     frame.BorderSizePixel = 0
     frame.Parent = screen
     frame.Active = true
     frame.Draggable = true
+    frameRef = frame
     
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = frame
     
-    print("[ABD] Part 16/20 - Main Frame Created")
+    -- Border Glow
+    local border = Instance.new("Frame")
+    border.Size = UDim2.new(1, 0, 1, 0)
+    border.BackgroundTransparency = 1
+    border.Parent = frame
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(120, 80, 255)
+    stroke.Thickness = 1.5
+    stroke.Transparency = 0.3
+    stroke.Parent = border
+    
+    print("[ABD] Part 16/21 - Main Frame Created")
     return screen, frame
 end
 
-print("[ABD] Part 16/20 - UI Main Frame Loaded")
+print("[ABD] Part 16/21 - UI Main Frame Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 17/20
+    ABD OPTIMIZED SCRIPT - PART 17/21
     UI - TITLE, TOGGLE, STAND INFO
     ============================================================
 ]]
 
--- This continues from Part 16
-local function CreateUIElements(screen, frame)
+local function CreateTopSection(frame)
     -- Title
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 34)
+    title.Size = UDim2.new(1, 0, 0, 36)
     title.Position = UDim2.new(0, 0, 0, 4)
     title.BackgroundTransparency = 1
     title.Text = "⚡ ABD OPTIMIZED v3.2"
     title.TextColor3 = Color3.fromRGB(255, 200, 50)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 17
+    title.TextSize = 18
     title.Parent = frame
     
     -- Toggle Button
     local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0.9, 0, 0, 38)
-    toggle.Position = UDim2.new(0.05, 0, 0, 42)
+    toggle.Size = UDim2.new(0.9, 0, 0, 40)
+    toggle.Position = UDim2.new(0.05, 0, 0, 44)
     toggle.BackgroundColor3 = Color3.fromRGB(30, 130, 30)
     toggle.Text = "▶ START"
     toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggle.Font = Enum.Font.GothamBold
-    toggle.TextSize = 15
+    toggle.TextSize = 16
     toggle.Parent = frame
     
     local tcorner = Instance.new("UICorner")
     tcorner.CornerRadius = UDim.new(0, 6)
     tcorner.Parent = toggle
     
-    -- Stand Info
+    -- Stand Info - Wider
     local standBox = Instance.new("Frame")
-    standBox.Size = UDim2.new(0.9, 0, 0, 32)
-    standBox.Position = UDim2.new(0.05, 0, 0, 86)
+    standBox.Size = UDim2.new(0.9, 0, 0, 34)
+    standBox.Position = UDim2.new(0.05, 0, 0, 90)
     standBox.BackgroundColor3 = Color3.fromRGB(25, 20, 50)
     standBox.BackgroundTransparency = 0.5
     standBox.Parent = frame
@@ -705,31 +721,46 @@ local function CreateUIElements(screen, frame)
     sc.Parent = standBox
     
     local standLabel = Instance.new("TextLabel")
-    standLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    standLabel.Size = UDim2.new(0.7, 0, 1, 0)
     standLabel.Position = UDim2.new(0.02, 0, 0, 0)
     standLabel.BackgroundTransparency = 1
     standLabel.Text = "🔄 Stand: None"
     standLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
     standLabel.Font = Enum.Font.Gotham
-    standLabel.TextSize = 11
+    standLabel.TextSize = 12
     standLabel.TextXAlignment = Enum.TextXAlignment.Left
     standLabel.Parent = standBox
     
-    return toggle, standLabel
+    -- Menu Toggle Button
+    local menuToggle = Instance.new("TextButton")
+    menuToggle.Size = UDim2.new(0.2, 0, 1, -4)
+    menuToggle.Position = UDim2.new(0.78, 0, 0, 2)
+    menuToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+    menuToggle.Text = "Hide"
+    menuToggle.TextColor3 = Color3.fromRGB(200, 200, 200)
+    menuToggle.Font = Enum.Font.GothamBold
+    menuToggle.TextSize = 10
+    menuToggle.Parent = standBox
+    
+    local mtCorner = Instance.new("UICorner")
+    mtCorner.CornerRadius = UDim.new(0, 3)
+    mtCorner.Parent = menuToggle
+    
+    return toggle, standLabel, menuToggle
 end
 
-print("[ABD] Part 17/20 - UI Elements Loaded")
+print("[ABD] Part 17/21 - UI Top Section Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 18/20
-    UI - BOSS LIST
+    ABD OPTIMIZED SCRIPT - PART 18/21
+    UI - BOSS LIST (EXPANDED)
     ============================================================
 ]]
 
 local function CreateBossList(frame)
     local bossBox = Instance.new("Frame")
-    bossBox.Size = UDim2.new(0.9, 0, 0, 120)
-    bossBox.Position = UDim2.new(0.05, 0, 0, 124)
+    bossBox.Size = UDim2.new(0.9, 0, 0, 140)
+    bossBox.Position = UDim2.new(0.05, 0, 0, 130)
     bossBox.BackgroundColor3 = Color3.fromRGB(18, 18, 38)
     bossBox.BackgroundTransparency = 0.4
     bossBox.Parent = frame
@@ -738,20 +769,40 @@ local function CreateBossList(frame)
     bcorner.CornerRadius = UDim.new(0, 6)
     bcorner.Parent = bossBox
     
+    -- Title bar with count
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 22)
+    titleBar.Position = UDim2.new(0, 0, 0, 2)
+    titleBar.BackgroundTransparency = 1
+    titleBar.Parent = bossBox
+    
     local blabel = Instance.new("TextLabel")
-    blabel.Size = UDim2.new(1, 0, 0, 20)
-    blabel.Position = UDim2.new(0, 0, 0, 2)
+    blabel.Size = UDim2.new(0.7, 0, 1, 0)
+    blabel.Position = UDim2.new(0, 0, 0, 0)
     blabel.BackgroundTransparency = 1
-    blabel.Text = "🎯 BOSS LIST (Tap to Select)"
+    blabel.Text = "🎯 BOSS LIST"
     blabel.TextColor3 = Color3.fromRGB(180, 180, 220)
     blabel.Font = Enum.Font.GothamBold
     blabel.TextSize = 12
-    blabel.Parent = bossBox
+    blabel.TextXAlignment = Enum.TextXAlignment.Left
+    blabel.Parent = titleBar
     
+    local countLabel = Instance.new("TextLabel")
+    countLabel.Size = UDim2.new(0.3, 0, 1, 0)
+    countLabel.Position = UDim2.new(0.7, 0, 0, 0)
+    countLabel.BackgroundTransparency = 1
+    countLabel.Text = "Total: 0"
+    countLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
+    countLabel.Font = Enum.Font.Gotham
+    countLabel.TextSize = 11
+    countLabel.TextXAlignment = Enum.TextXAlignment.Right
+    countLabel.Parent = titleBar
+    
+    -- List Frame - Larger
     local listFrame = Instance.new("ScrollingFrame")
-    listFrame.Size = UDim2.new(1, 0, 0, 90)
-    listFrame.Position = UDim2.new(0, 0, 0, 24)
-    listFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 28)
+    listFrame.Size = UDim2.new(1, 0, 0, 108)
+    listFrame.Position = UDim2.new(0, 0, 0, 26)
+    listFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
     listFrame.BackgroundTransparency = 0.5
     listFrame.BorderSizePixel = 0
     listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -767,29 +818,29 @@ local function CreateBossList(frame)
     listContainer.BackgroundTransparency = 1
     listContainer.Parent = listFrame
     
-    return listContainer, listFrame
+    return listContainer, listFrame, countLabel
 end
 
-print("[ABD] Part 18/20 - UI Boss List Loaded")
+print("[ABD] Part 18/21 - UI Boss List Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 19/20
-    UI - SKILL GRID & CONTROLS
+    ABD OPTIMIZED SCRIPT - PART 19/21
+    UI - SKILL GRID (EXPANDED)
     ============================================================
 ]]
 
 local function CreateSkillGrid(frame)
     local grid = Instance.new("Frame")
-    grid.Size = UDim2.new(0.9, 0, 0, 130)
-    grid.Position = UDim2.new(0.05, 0, 0, 252)
+    grid.Size = UDim2.new(0.9, 0, 0, 140)
+    grid.Position = UDim2.new(0.05, 0, 0, 278)
     grid.BackgroundTransparency = 1
     grid.Parent = frame
     
     local btns = {}
     local keys = {"Q","E","R","T","V","B","J","H","F","Z","C","M1"}
     local cols = 4
-    local size = 34
-    local space = 4
+    local size = 38
+    local space = 5
     
     for i, key in ipairs(keys) do
         local row = math.floor((i-1) / cols)
@@ -808,7 +859,7 @@ local function CreateSkillGrid(frame)
         
         btn.TextColor3 = Color3.fromRGB(200, 200, 200)
         btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 14
+        btn.TextSize = 15
         btn.Parent = grid
         
         local sc2 = Instance.new("UICorner")
@@ -828,37 +879,36 @@ local function CreateSkillGrid(frame)
     return btns
 end
 
-print("[ABD] Part 19/20 - UI Skill Grid Loaded")
+print("[ABD] Part 19/21 - UI Skill Grid Loaded")
 --[[
     ============================================================
-    ABD OPTIMIZED SCRIPT - PART 20/20
-    UI - CONTROLS, STATUS & INIT
+    ABD OPTIMIZED SCRIPT - PART 20/21
+    UI - CONTROLS & STATUS
     ============================================================
 ]]
 
--- This continues from Part 19
 local function CreateControls(frame)
     -- Rotation Text
     local rot = Instance.new("TextLabel")
-    rot.Size = UDim2.new(0.9, 0, 0, 18)
-    rot.Position = UDim2.new(0.05, 0, 0, 388)
+    rot.Size = UDim2.new(0.9, 0, 0, 20)
+    rot.Position = UDim2.new(0.05, 0, 0, 425)
     rot.BackgroundTransparency = 1
-    rot.Text = "E→R→T→V→B→J→H→F→Z→C→M1"
+    rot.Text = "E → R → T → V → B → J → H → F → Z → C → M1"
     rot.TextColor3 = Color3.fromRGB(100, 200, 100)
     rot.Font = Enum.Font.Gotham
     rot.TextSize = 9
     rot.Parent = frame
     
-    -- Toggle Row
+    -- Toggle Row - Wider
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(0.9, 0, 0, 34)
-    row.Position = UDim2.new(0.05, 0, 0, 410)
+    row.Size = UDim2.new(0.9, 0, 0, 36)
+    row.Position = UDim2.new(0.05, 0, 0, 448)
     row.BackgroundTransparency = 1
     row.Parent = frame
     
     -- Teleport
     local tp = Instance.new("TextButton")
-    tp.Size = UDim2.new(0.32, 0, 0, 30)
+    tp.Size = UDim2.new(0.3, 0, 0, 32)
     tp.Position = UDim2.new(0, 0, 0, 0)
     tp.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
     tp.Text = "📱 TP"
@@ -879,8 +929,8 @@ local function CreateControls(frame)
     
     -- Aura
     local aura = Instance.new("TextButton")
-    aura.Size = UDim2.new(0.32, 0, 0, 30)
-    aura.Position = UDim2.new(0.34, 0, 0, 0)
+    aura.Size = UDim2.new(0.3, 0, 0, 32)
+    aura.Position = UDim2.new(0.35, 0, 0, 0)
     aura.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
     aura.Text = "⚔️ AURA"
     aura.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -900,8 +950,8 @@ local function CreateControls(frame)
     
     -- Scan Button
     local scan = Instance.new("TextButton")
-    scan.Size = UDim2.new(0.32, 0, 0, 30)
-    scan.Position = UDim2.new(0.68, 0, 0, 0)
+    scan.Size = UDim2.new(0.3, 0, 0, 32)
+    scan.Position = UDim2.new(0.70, 0, 0, 0)
     scan.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
     scan.Text = "🔄 SCAN"
     scan.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -920,10 +970,10 @@ local function CreateControls(frame)
         UpdateStandDisplay()
     end)
     
-    -- Status
+    -- Status - Larger
     local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(0.9, 0, 0, 32)
-    status.Position = UDim2.new(0.05, 0, 0, 450)
+    status.Size = UDim2.new(0.9, 0, 0, 36)
+    status.Position = UDim2.new(0.05, 0, 0, 490)
     status.BackgroundTransparency = 1
     status.Text = "Status: Ready"
     status.TextColor3 = Color3.fromRGB(150, 150, 200)
@@ -934,13 +984,13 @@ local function CreateControls(frame)
     
     -- Close Button
     local close = Instance.new("TextButton")
-    close.Size = UDim2.new(0, 24, 0, 24)
-    close.Position = UDim2.new(1, -30, 0, 4)
+    close.Size = UDim2.new(0, 26, 0, 26)
+    close.Position = UDim2.new(1, -32, 0, 4)
     close.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
     close.Text = "✕"
     close.TextColor3 = Color3.fromRGB(255, 200, 200)
     close.Font = Enum.Font.GothamBold
-    close.TextSize = 13
+    close.TextSize = 14
     close.Parent = frame
     
     local ccorner = Instance.new("UICorner")
@@ -948,19 +998,198 @@ local function CreateControls(frame)
     ccorner.Parent = close
     
     close.MouseButton1Click:Connect(function()
-        screen.Enabled = not screen.Enabled
+        screenRef.Enabled = not screenRef.Enabled
+        State.MenuVisible = screenRef.Enabled
     end)
     
     return tp, aura, scan, status, close
 end
 
--- Update functions
+print("[ABD] Part 20/21 - UI Controls & Status Loaded")
+```
+
+```lua
+--[[
+    ============================================================
+    ABD OPTIMIZED SCRIPT - PART 21/21
+    UI COMPLETE & INITIALIZATION
+    ============================================================
+]]
+
+-- Variables for UI updates
+local listContainer, listFrame, countLabel
+local standLabel, statusLabel
+local toggleButton
+
+-- Update Functions
 local function UpdateBossList()
-    -- This will be defined in the main UI
+    if not listContainer then return end
+    
+    for _, child in ipairs(listContainer:GetChildren()) do
+        child:Destroy()
+    end
+    
+    local total = #State.Bosses
+    if countLabel then
+        countLabel.Text = "Total: " .. total
+    end
+    
+    local yOffset = 0
+    local btnHeight = 26
+    
+    if total == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Size = UDim2.new(1, 0, 0, btnHeight)
+        empty.Position = UDim2.new(0, 0, 0, yOffset)
+        empty.BackgroundTransparency = 1
+        empty.Text = "No bosses found"
+        empty.TextColor3 = Color3.fromRGB(150, 150, 180)
+        empty.Font = Enum.Font.Gotham
+        empty.TextSize = 11
+        empty.Parent = listContainer
+        yOffset = yOffset + btnHeight
+    else
+        for i, name in ipairs(State.BossNames) do
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -4, 0, btnHeight)
+            btn.Position = UDim2.new(0, 2, 0, yOffset)
+            btn.BackgroundColor3 = (i == State.SelectedIndex) and 
+                Color3.fromRGB(60, 40, 120) or Color3.fromRGB(30, 30, 50)
+            btn.Text = name
+            btn.TextColor3 = (i == State.SelectedIndex) and 
+                Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
+            btn.Font = Enum.Font.Gotham
+            btn.TextSize = 10
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.Parent = listContainer
+            
+            local bcorner2 = Instance.new("UICorner")
+            bcorner2.CornerRadius = UDim.new(0, 3)
+            bcorner2.Parent = btn
+            
+            btn.MouseButton1Click:Connect(function()
+                State.SelectedIndex = i
+                State.Target = GetBossByIndex(i)
+                UpdateBossList()
+            end)
+            
+            yOffset = yOffset + btnHeight + 2
+        end
+    end
+    
+    listContainer.Size = UDim2.new(1, 0, 0, yOffset)
+    if listFrame then
+        listFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+    end
 end
 
 local function UpdateStandDisplay()
-    -- This will be defined in the main UI
+    if not standLabel then return end
+    standLabel.Text = "🔄 Stand: " .. State.StandName
+    if State.HasStand then
+        standLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        standLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+end
+
+local function UpdateStatus()
+    if not statusLabel then return end
+    statusLabel.Text = State.StatusText
+end
+
+-- Complete UI Creation
+function UI:CreateComplete()
+    local screen, frame = self:Create()
+    
+    -- Create all sections
+    local toggle, stand, menuToggle = CreateTopSection(frame)
+    toggleButton = toggle
+    standLabel = stand
+local container, lframe, count = CreateBossList(frame)
+    listContainer = container
+    listFrame = lframe
+    countLabel = count
+    
+    local btns = CreateSkillGrid(frame)
+    local tp, aura, scan, status, close = CreateControls(frame)
+    statusLabel = status
+    
+    -- Menu Toggle Function
+    menuToggle.MouseButton1Click:Connect(function()
+        State.MenuVisible = not State.MenuVisible
+        frame.Visible = State.MenuVisible
+        menuToggle.Text = State.MenuVisible and "Hide" or "Show"
+        menuToggle.BackgroundColor3 = State.MenuVisible and 
+            Color3.fromRGB(40, 40, 70) or Color3.fromRGB(70, 40, 40)
+    end)
+    
+    -- Main Toggle
+    toggle.MouseButton1Click:Connect(function()
+        State.Enabled = not State.Enabled
+        toggle.Text = State.Enabled and "⏹ STOP" or "▶ START"
+        toggle.BackgroundColor3 = State.Enabled and 
+            Color3.fromRGB(200, 40, 40) or Color3.fromRGB(30, 130, 30)
+        
+        if State.Enabled then
+            State.RotationIndex = 1
+            ScanAllBosses()
+            ScanForStand()
+            UpdateBossList()
+            UpdateStandDisplay()
+            State.Target = GetBossByIndex(State.SelectedIndex) or GetClosestBoss()
+            
+            task.wait(0.3)
+            AutoSummonStand()
+            
+            if State.LoopConnection then
+                State.LoopConnection:Disconnect()
+            end
+            if State.StandLoopConnection then
+                State.StandLoopConnection:Disconnect()
+            end
+            
+            State.LoopConnection = RunService.Heartbeat:Connect(function()
+                if not State.Enabled then return end
+                pcall(MainLoop)
+                pcall(UpdateStatus)
+                
+                if tick() % Settings.ScanInterval < 0.05 then
+                    pcall(UpdateBossList)
+                    pcall(UpdateStandDisplay)
+                end
+            end)
+            
+            State.StandLoopConnection = RunService.Heartbeat:Connect(function()
+                if not State.Enabled then return end
+                if tick() % Settings.StandScanInterval < 0.05 then
+                    pcall(ScanForStand)
+                    pcall(UpdateStandDisplay)
+                end
+            end)
+        else
+            if State.LoopConnection then
+                State.LoopConnection:Disconnect()
+                State.LoopConnection = nil
+            end
+            if State.StandLoopConnection then
+                State.StandLoopConnection:Disconnect()
+                State.StandLoopConnection = nil
+            end
+            State.StatusText = "Stopped"
+            UpdateStatus()
+        end
+    end)
+    
+    -- Initial scan
+    ScanAllBosses()
+    ScanForStand()
+    UpdateBossList()
+    UpdateStandDisplay()
+    UpdateStatus()
+    
+    print("[ABD] Complete UI Created Successfully!")
+    return screen
 end
 
 -- Initialize
@@ -975,11 +1204,12 @@ local function Initialize()
     
     local success = false
     for attempt = 1, 3 do
-        success, err = pcall(UI.Create, UI)
+        success, err = pcall(UI.CreateComplete, UI)
         if success then
             print("[ABD] UI Loaded on attempt " .. attempt)
             break
-        else            warn("[ABD] Attempt " .. attempt .. " failed: " .. tostring(err))
+        else
+            warn("[ABD] Attempt " .. attempt .. " failed: " .. tostring(err))
             task.wait(1)
         end
     end
@@ -991,9 +1221,10 @@ local function Initialize()
     print("[ABD] ===== SCRIPT LOADED SUCCESSFULLY =====")
     print("[ABD] Game ID: " .. game.PlaceId)
     print("[ABD] Features: Auto-scan, Boss List, Stand Detection, Skill Rotation")
+    print("[ABD] Press START to begin | Hide/Show menu with Hide button")
 end
 
 pcall(Initialize)
 
-print("[ABD] Part 20/20 - UI Controls & Init Loaded")
-print("[ABD] ===== ALL 20 PARTS LOADED =====")
+print("[ABD] Part 21/21 - UI Complete & Init Loaded")
+print("[ABD] ===== ALL 21 PARTS LOADED =====")
