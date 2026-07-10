@@ -1863,4 +1863,4 @@ print("[ABD] Part 26/27 - Initialization Loaded")
 pcall(Initialize)
 
 print("[ABD] Part 27/27 - Start & Complete Loaded")
-print("[AB
+print("[ABD] ===== ABD v3.4 READY ===== ")
