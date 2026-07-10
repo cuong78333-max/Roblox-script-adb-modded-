@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 local DamageEvent = ReplicatedStorage:FindFirstChild("Damage") or ReplicatedStorage:FindFirstChild("Dmg")
@@ -310,7 +311,10 @@ task.spawn(function()
                             task.spawn(function()
                                 while _G.KillAura and npc.Humanoid.Health > 0 and npc.Parent == workspace do
                                     game:GetService("RunService").Heartbeat:Wait()
-                                    rootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
+                                    local targetCFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
+                                    local tweenInfo = TweenInfo.new(0.01, Enum.EasingStyle.Linear)
+                                    local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
+                                    tween:Play()
                                 end
                             end)
 
