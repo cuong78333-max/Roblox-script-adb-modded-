@@ -1,0 +1,791 @@
+--[[
+    ============================================================
+    ABD OPTIMIZED SCRIPT - COMPLETE SINGLE FILE
+    Version 3.0 - Fully Rewritten for Stability
+    Optimized for Delta X Mobile
+    ============================================================
+]]
+
+-- ============================================================
+-- PART 1: SERVICES & VARIABLES
+-- ============================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ============================================================
+-- PART 2: CONFIGURATION
+-- ============================================================
+
+local Settings = {
+    TeleportDistance = 5,
+    AuraRadius = 25,
+    ScanInterval = 0.5,
+    SkillCooldowns = {
+        Q = 2.0, E = 0.5, R = 1.0, T = 1.5,
+        V = 0.8, B = 1.2, J = 1.0, H = 1.3, F = 0.6
+    }
+}
+
+-- ============================================================
+-- PART 3: STATE MANAGEMENT
+-- ============================================================
+
+local State = {
+    Enabled = false,
+    Teleport = false,
+    Aura = false,
+    Target = nil,
+    Bosses = {},
+    BossNames = {},
+    SelectedIndex = 1,
+    RotationIndex = 1,
+    LoopConnection = nil,
+    IsDead = false,
+    Skills = {},
+    Timers = {}
+}
+
+-- Initialize skills
+local AllSkills = {"Q","E","R","T","V","B","J","H","F"}
+local RotationSkills = {"E","R","T","V","B","J","H","F"}
+
+for _, skill in ipairs(AllSkills) do
+    State.Skills[skill] = false
+    State.Timers[skill] = 0
+end
+
+-- ============================================================
+-- PART 4: UTILITY FUNCTIONS
+-- ============================================================
+
+local function GetHumanoid(Char)
+    if not Char then return nil end
+    return Char:FindFirstChildOfClass("Humanoid")
+end
+
+local function GetRoot(Char)
+    if not Char then return nil end
+    return Char:FindFirstChild("HumanoidRootPart")
+end
+
+local function IsAlive(Char)
+    local hum = GetHumanoid(Char)
+    return hum and hum.Health and hum.Health > 0
+end
+
+local function IsBoss(Char)
+    if not Char then return false end
+    
+    local name = Char.Name or ""
+    local lower = name:lower()
+    
+    local patterns = {
+        "boss","dio","kars","diavolo","jotaro","giorno",
+        "pucci","valentine","tooru","wonder","heaven",
+        "king crimson","golden","star platinum","the world",
+        "crazy diamond","killer queen","stand","requiem",
+        "d4c","tusk","soft & wet","made in heaven"
+    }
+    
+    for _, p in ipairs(patterns) do
+        if lower:find(p) then return true end
+    end
+    
+    if Char:FindFirstChild("BossTag") then return true end
+    if Char:FindFirstChild("BossHealthBar") then return true end
+    if Char:FindFirstChild("Boss") then return true end
+    
+    local hum = GetHumanoid(Char)
+    if hum and hum.MaxHealth and hum.MaxHealth > 100 then
+        return true
+    end
+    
+    return false
+end
+
+-- ============================================================
+-- PART 5: BOSS SCANNER
+-- ============================================================
+
+local function ScanBosses()
+    local bosses = {}
+    local names = {}
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and IsBoss(char) and IsAlive(char) then
+                table.insert(bosses, char)
+                local display = char.Name or "Unknown"
+                local hum = GetHumanoid(char)
+                if hum and hum.Health then
+                    display = display .. " [" .. math.floor(hum.Health) .. "]"
+                end
+                table.insert(names, display)
+            end
+        end
+    end
+    
+    State.Bosses = bosses
+    State.BossNames = names
+    
+    if State.SelectedIndex > #State.Bosses then
+        State.SelectedIndex = math.max(1, #State.Bosses)
+    end
+    if State.SelectedIndex < 1 then
+        State.SelectedIndex = 1
+    end
+    
+    return bosses, names
+end
+
+local function GetBossByIndex(index)
+    if index < 1 or index > #State.Bosses then return nil end
+    return State.Bosses[index]
+end
+
+local function GetClosestBoss()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    local root = GetRoot(char)
+    if not root then return nil end
+    
+    local closest = nil
+    local minDist = math.huge
+    
+    for _, boss in ipairs(State.Bosses) do
+        if boss and boss.Parent then
+            local br = GetRoot(boss)
+            if br then
+                local dist = (root.Position - br.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = boss
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- ============================================================
+-- PART 6: COMBAT FUNCTIONS
+-- ============================================================
+
+local function AutoSummon()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hum = GetHumanoid(char)
+    if not hum then return end
+    
+    if hum.Health and hum.Health <= 0 then
+        State.IsDead = true
+        return
+    end
+    
+    if State.IsDead and State.Enabled then
+        State.IsDead = false
+        task.wait(1.5)
+        
+        local now = tick()
+        if now >= State.Timers["Q"] then
+            pcall(function()
+                VirtualInputManager:SendKeyEvent(true, "Q", false, nil)
+                task.wait(0.05)
+                VirtualInputManager:SendKeyEvent(false, "Q", false, nil)
+            end)
+            State.Timers["Q"] = now + Settings.SkillCooldowns["Q"]
+        end
+    end
+end
+
+local function TeleportBehind(Target)
+    if not Target then return false end
+    
+    local char = LocalPlayer.Character
+    if not char then return false end
+    
+    local root = GetRoot(char)
+    local targetRoot = GetRoot(Target)
+    
+    if not root or not targetRoot then return false end
+    
+    local dir = (root.Position - targetRoot.Position).Unit
+    local pos = targetRoot.Position + dir * Settings.TeleportDistance
+    pos = Vector3.new(pos.X, targetRoot.Position.Y, pos.Z)
+    
+    pcall(function()
+        root.CFrame = CFrame.new(pos, targetRoot.Position)
+    end)
+    
+    return true
+end
+
+local function PressKey(key)
+    if type(key) ~= "string" then return end
+    
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, key, false, nil)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, key, false, nil)
+    end)
+    
+    State.Timers[key] = tick() + Settings.SkillCooldowns[key]
+end
+
+-- ============================================================
+-- PART 7: SKILL ROTATION
+-- ============================================================
+
+local function ExecuteRotation()
+    local now = tick()
+    
+    if State.RotationIndex > #RotationSkills then
+        State.RotationIndex = 1
+    end
+    
+    local current = RotationSkills[State.RotationIndex]
+    
+    if State.Skills[current] and now >= State.Timers[current] then
+        PressKey(current)
+        State.RotationIndex = State.RotationIndex + 1
+        if State.RotationIndex > #RotationSkills then
+            State.RotationIndex = 1
+        end
+        return true
+    end
+    
+    -- Find next available skill
+    for i = 1, #RotationSkills do
+        State.RotationIndex = State.RotationIndex + 1
+        if State.RotationIndex > #RotationSkills then
+            State.RotationIndex = 1
+        end
+        
+        local check = RotationSkills[State.RotationIndex]
+        if State.Skills[check] and now >= State.Timers[check] then
+            PressKey(check)
+            State.RotationIndex = State.RotationIndex + 1
+            if State.RotationIndex > #RotationSkills then
+                State.RotationIndex = 1
+            end
+            return true
+        end
+    end
+    
+    return false
+end
+
+local function DoKillAura()
+    local target = State.Target
+    if not target or not target.Parent then
+        target = GetBossByIndex(State.SelectedIndex) or GetClosestBoss()
+        State.Target = target
+    end
+    
+    if not target then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local root = GetRoot(char)
+    local targetRoot = GetRoot(target)
+    
+    if not root or not targetRoot then return end
+    
+    local dist = (root.Position - targetRoot.Position).Magnitude
+    
+    if dist > Settings.AuraRadius then
+        if State.Teleport then
+            TeleportBehind(target)
+        end
+        return
+    end
+    
+    ExecuteRotation()
+end
+
+local function FaceTarget(Target)
+    if not Target then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local root = GetRoot(char)
+    local targetRoot = GetRoot(Target)
+    
+    if not root or not targetRoot then return end
+    
+    pcall(function()
+        local look = CFrame.new(root.Position, targetRoot.Position)
+        root.CFrame = CFrame.new(root.Position, look.LookVector + root.Position)
+    end)
+end
+
+-- ============================================================
+-- PART 8: MAIN LOOP
+-- ============================================================
+
+local function MainLoop()
+    if not State.Enabled then return end
+    
+    AutoSummon()
+    
+    if tick() % Settings.ScanInterval < 0.1 then
+        ScanBosses()
+    end
+    
+    if State.SelectedIndex > 0 and State.SelectedIndex <= #State.Bosses then
+        local selected = GetBossByIndex(State.SelectedIndex)
+        if selected and selected.Parent and IsAlive(selected) then
+            State.Target = selected
+        else
+            State.Target = GetClosestBoss()
+        end
+    else
+        State.Target = GetClosestBoss()
+    end
+    
+    if State.Target then
+        FaceTarget(State.Target)
+        
+        if State.Aura then
+            DoKillAura()
+        end
+        
+        if State.Teleport then
+            local char = LocalPlayer.Character
+            if char then
+                local root = GetRoot(char)
+                local targetRoot = GetRoot(State.Target)
+                if root and targetRoot then
+                    local dist = (root.Position - targetRoot.Position).Magnitude
+                    if dist > Settings.AuraRadius then
+                        TeleportBehind(State.Target)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- ============================================================
+-- PART 9: UI CREATION
+-- ============================================================
+
+local function CreateUI()
+    -- Get PlayerGui
+    local gui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not gui then
+        gui = Instance.new("PlayerGui")
+        gui.Parent = LocalPlayer
+        task.wait(0.1)
+    end
+    
+    -- Remove old
+    local old = gui:FindFirstChild("ABD_Main")
+    if old then old:Destroy() end
+    
+    -- ScreenGui
+    local screen = Instance.new("ScreenGui")
+    screen.Name = "ABD_Main"
+    screen.Parent = gui
+    screen.ResetOnSpawn = false
+    screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    -- Main Frame
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 200, 0, 380)
+    frame.Position = UDim2.new(0, 10, 0, 50)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 0
+    frame.Parent = screen
+    frame.Active = true
+    frame.Draggable = true
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 28)
+    title.Position = UDim2.new(0, 0, 0, 4)
+    title.BackgroundTransparency = 1
+    title.Text = "⚡ ABD v3.0"
+    title.TextColor3 = Color3.fromRGB(255, 200, 50)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 15
+    title.Parent = frame
+    
+    -- Toggle Button
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0.9, 0, 0, 32)
+    toggle.Position = UDim2.new(0.05, 0, 0, 36)
+    toggle.BackgroundColor3 = Color3.fromRGB(30, 130, 30)
+    toggle.Text = "▶ START"
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.Font = Enum.Font.GothamBold
+    toggle.TextSize = 13
+    toggle.Parent = frame
+    
+    local tcorner = Instance.new("UICorner")
+    tcorner.CornerRadius = UDim.new(0, 4)
+    tcorner.Parent = toggle
+    
+    -- Boss Section
+    local bossBox = Instance.new("Frame")
+    bossBox.Size = UDim2.new(0.9, 0, 0, 70)
+    bossBox.Position = UDim2.new(0.05, 0, 0, 74)
+    bossBox.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    bossBox.BackgroundTransparency = 0.5
+    bossBox.Parent = frame
+    
+    local bcorner = Instance.new("UICorner")
+    bcorner.CornerRadius = UDim.new(0, 4)
+    bcorner.Parent = bossBox
+    
+    local blabel = Instance.new("TextLabel")
+    blabel.Size = UDim2.new(1, 0, 0, 16)
+    blabel.Position = UDim2.new(0, 0, 0, 2)
+    blabel.BackgroundTransparency = 1
+    blabel.Text = "🎯 TARGET"
+    blabel.TextColor3 = Color3.fromRGB(180, 180, 220)
+    blabel.Font = Enum.Font.GothamBold
+    blabel.TextSize = 10
+    blabel.Parent = bossBox
+    
+    -- Prev
+    local prev = Instance.new("TextButton")
+    prev.Size = UDim2.new(0.2, 0, 0, 28)
+    prev.Position = UDim2.new(0.02, 0, 0, 20)
+    prev.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    prev.Text = "◀"
+    prev.TextColor3 = Color3.fromRGB(255, 255, 255)
+    prev.Font = Enum.Font.GothamBold
+    prev.TextSize = 14
+    prev.Parent = bossBox
+    
+    local pcorner = Instance.new("UICorner")
+    pcorner.CornerRadius = UDim.new(0, 3)
+    pcorner.Parent = prev
+    
+    -- Display
+    local display = Instance.new("TextLabel")
+    display.Size = UDim2.new(0.5, 0, 0, 28)
+    display.Position = UDim2.new(0.25, 0, 0, 20)
+    display.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
+    display.Text = "None"
+    display.TextColor3 = Color3.fromRGB(255, 200, 100)
+    display.Font = Enum.Font.Gotham
+    display.TextSize = 9
+    display.TextWrapped = true
+    display.Parent = bossBox
+    
+    local dcorner = Instance.new("UICorner")
+    dcorner.CornerRadius = UDim.new(0, 3)
+    dcorner.Parent = display
+    
+    -- Next
+    local next = Instance.new("TextButton")
+    next.Size = UDim2.new(0.2, 0, 0, 28)
+    next.Position = UDim2.new(0.78, 0, 0, 20)
+    next.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    next.Text = "▶"
+    next.TextColor3 = Color3.fromRGB(255, 255, 255)
+    next.Font = Enum.Font.GothamBold
+    next.TextSize = 14
+    next.Parent = bossBox
+    
+    local ncorner = Instance.new("UICorner")
+    ncorner.CornerRadius = UDim.new(0, 3)
+    ncorner.Parent = next
+    
+    -- Count
+    local count = Instance.new("TextLabel")
+    count.Size = UDim2.new(1, 0, 0, 14)
+    count.Position = UDim2.new(0, 0, 0, 52)
+    count.BackgroundTransparency = 1
+    count.Text = "Total: 0"
+    count.TextColor3 = Color3.fromRGB(150, 150, 180)
+    count.Font = Enum.Font.Gotham
+    count.TextSize = 9
+    count.Parent = bossBox
+    
+    -- Skill Grid
+    local grid = Instance.new("Frame")
+    grid.Size = UDim2.new(0.9, 0, 0, 95)
+    grid.Position = UDim2.new(0.05, 0, 0, 150)
+    grid.BackgroundTransparency = 1
+    grid.Parent = frame
+    
+    local btns = {}
+    local keys = {"Q","E","R","T","V","B","J","H","F"}
+    local cols = 4
+    local size = 28
+    local space = 3
+    
+    for i, key in ipairs(keys) do
+        local row = math.floor((i-1) / cols)
+        local col = (i-1) % cols
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, size, 0, size)
+        btn.Position = UDim2.new(0, col * (size + space), 0, row * (size + space))
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 75)
+        btn.Text = key
+        btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        btn.Parent = grid
+        
+        local sc = Instance.new("UICorner")
+        sc.CornerRadius = UDim.new(0, 3)
+        sc.Parent = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            State.Skills[key] = not State.Skills[key]
+            btn.BackgroundColor3 = State.Skills[key] and 
+                Color3.fromRGB(40, 180, 40) or Color3.fromRGB(50, 50, 75)
+        end)
+        
+        btns[key] = btn
+    end
+    
+    -- Rotation Text
+    local rot = Instance.new("TextLabel")
+    rot.Size = UDim2.new(0.9, 0, 0, 14)
+    rot.Position = UDim2.new(0.05, 0, 0, 250)
+    rot.BackgroundTransparency = 1
+    rot.Text = "E→R→T→V→B→J→H→F"
+    rot.TextColor3 = Color3.fromRGB(100, 200, 100)
+    rot.Font = Enum.Font.Gotham
+    rot.TextSize = 8
+    rot.Parent = frame
+    
+    -- Teleport and Aura
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(0.9, 0, 0, 26)
+    row.Position = UDim2.new(0.05, 0, 0, 268)
+    row.BackgroundTransparency = 1
+    row.Parent = frame
+    
+    -- Teleport
+    local tp = Instance.new("TextButton")
+    tp.Size = UDim2.new(0.48, 0, 0, 24)
+    tp.Position = UDim2.new(0, 0, 0, 0)
+    tp.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    tp.Text = "📱 TP"
+    tp.TextColor3 = Color3.fromRGB(200, 200, 200)
+    tp.Font = Enum.Font.GothamBold
+    tp.TextSize = 10
+    tp.Parent = row
+    
+    local tpc = Instance.new("UICorner")
+    tpc.CornerRadius = UDim.new(0, 3)
+    tpc.Parent = tp
+    
+    tp.MouseButton1Click:Connect(function()
+        State.Teleport = not State.Teleport
+        tp.BackgroundColor3 = State.Teleport and 
+            Color3.fromRGB(40, 130, 200) or Color3.fromRGB(45, 45, 65)
+    end)
+    
+    -- Aura
+    local aura = Instance.new("TextButton")
+    aura.Size = UDim2.new(0.48, 0, 0, 24)
+    aura.Position = UDim2.new(0.52, 0, 0, 0)
+    aura.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    aura.Text = "⚔️ AURA"
+    aura.TextColor3 = Color3.fromRGB(200, 200, 200)
+    aura.Font = Enum.Font.GothamBold
+    aura.TextSize = 10
+    aura.Parent = row
+    
+    local aurac = Instance.new("UICorner")
+    aurac.CornerRadius = UDim.new(0, 3)
+    aurac.Parent = aura
+    
+    aura.MouseButton1Click:Connect(function()
+        State.Aura = not State.Aura
+        aura.BackgroundColor3 = State.Aura and 
+            Color3.fromRGB(200, 40, 40) or Color3.fromRGB(45, 45, 65)
+    end)
+    
+    -- Status
+    local status = Instance.new("TextLabel")
+    status.Size = UDim2.new(0.9, 0, 0, 26)
+    status.Position = UDim2.new(0.05, 0, 0, 298)
+    status.BackgroundTransparency = 1
+    status.Text = "Status: Ready"
+    status.TextColor3 = Color3.fromRGB(150, 150, 200)
+    status.Font = Enum.Font.Gotham
+    status.TextSize = 9
+    status.TextWrapped = true
+    status.Parent = frame
+    
+    -- Close
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0, 20, 0, 20)
+    close.Position = UDim2.new(1, -24, 0, 4)
+    close.BackgroundColor3 = Color3.fromRGB(70, 20, 20)
+    close.Text = "✕"
+    close.TextColor3 = Color3.fromRGB(255, 200, 200)
+    close.Font = Enum.Font.GothamBold
+    close.TextSize = 11
+    close.Parent = frame
+    
+    local ccorner = Instance.new("UICorner")
+    ccorner.CornerRadius = UDim.new(0, 8)
+    ccorner.Parent = close
+    
+    close.MouseButton1Click:Connect(function()
+        screen.Enabled = not screen.Enabled
+    end)
+    
+    -- ============================================================
+    -- PART 10: UI CALLBACKS
+    -- ============================================================
+    
+    local function UpdateDisplay()
+        local total = #State.Bosses
+        count.Text = "Total: " .. total
+        
+        if total > 0 and State.SelectedIndex >= 1 and State.SelectedIndex <= total then
+            local name = State.BossNames[State.SelectedIndex] or "Unknown"
+            if #name > 18 then name = string.sub(name, 1, 15) .. "..." end
+            display.Text = name
+        else
+            display.Text = "No Boss"
+            if total > 0 then
+                State.SelectedIndex = 1
+                local name = State.BossNames[1] or "Unknown"
+                if #name > 18 then name = string.sub(name, 1, 15) .. "..." end
+                display.Text = name
+            end
+        end
+    end
+    
+    -- Navigation
+    prev.MouseButton1Click:Connect(function()
+        if #State.Bosses > 0 then
+            State.SelectedIndex = State.SelectedIndex - 1
+            if State.SelectedIndex < 1 then
+                State.SelectedIndex = #State.Bosses
+            end
+            UpdateDisplay()
+            State.Target = GetBossByIndex(State.SelectedIndex)
+        end
+    end)
+    
+    next.MouseButton1Click:Connect(function()
+        if #State.Bosses > 0 then
+            State.SelectedIndex = State.SelectedIndex + 1
+            if State.SelectedIndex > #State.Bosses then
+                State.SelectedIndex = 1
+            end
+            UpdateDisplay()
+            State.Target = GetBossByIndex(State.SelectedIndex)
+        end
+    end)
+    
+    -- Main Toggle
+    toggle.MouseButton1Click:Connect(function()
+        State.Enabled = not State.Enabled
+        toggle.Text = State.Enabled and "⏹ STOP" or "▶ START"
+        toggle.BackgroundColor3 = State.Enabled and 
+            Color3.fromRGB(200, 40, 40) or Color3.fromRGB(30, 130, 30)
+        
+        if State.Enabled then
+            State.RotationIndex = 1
+            ScanBosses()
+            UpdateDisplay()
+            State.Target = GetBossByIndex(State.SelectedIndex) or GetClosestBoss()
+            
+            task.wait(0.3)
+            AutoSummon()
+            
+            if State.LoopConnection then
+                State.LoopConnection:Disconnect()
+            end
+            
+            State.LoopConnection = RunService.Heartbeat:Connect(function()
+                if not State.Enabled then return end
+                pcall(MainLoop)
+                
+                if tick() % Settings.ScanInterval < 0.1 then
+                    pcall(UpdateDisplay)
+                end
+                
+                local targetName = State.Target and State.Target.Name or "None"
+                if #targetName > 15 then targetName = string.sub(targetName, 1, 12) .. ".." end
+                local nextSkill = RotationSkills[State.RotationIndex] or "-"
+                status.Text = string.format("Target: %s | Next: %s", targetName, nextSkill)
+            end)
+        else
+            if State.LoopConnection then
+                State.LoopConnection:Disconnect()
+                State.LoopConnection = nil
+            end
+            status.Text = "Status: Stopped"
+        end
+    end)
+    
+    -- Initial scan
+    ScanBosses()
+    UpdateDisplay()
+    status.Text = "Status: Ready"
+    
+    print("[ABD] UI Created Successfully!")
+    return screen
+end
+
+-- ============================================================
+-- PART 11: INITIALIZATION
+-- ============================================================
+
+local function Initialize()
+    -- Wait for character
+    for i = 1, 10 do
+        if LocalPlayer and LocalPlayer.Character and 
+           LocalPlayer.Character:FindFirstChild("Humanoid") then
+            break
+        end
+        task.wait(0.5)
+    end
+    
+    -- Create UI with retry
+    local success = false
+    for attempt = 1, 3 do
+        success, err = pcall(CreateUI)
+        if success then
+            print("[ABD] UI Loaded on attempt " .. attempt)
+            break
+        else
+            warn("[ABD] Attempt " .. attempt .. " failed: " .. tostring(err))
+            task.wait(1)
+        end
+    end
+    
+    if not success then
+        warn("[ABD] All UI attempts failed. Please re-execute.")
+    end
+    
+    print("[ABD] ===== SCRIPT LOADED SUCCESSFULLY =====")
+    print("[ABD] Game ID: " .. game.PlaceId)
+    print("[ABD] Press START to begin")
+end
+
+-- ============================================================
+-- PART 12: START
+-- ============================================================
+
+pcall(Initialize)
+  
+  
