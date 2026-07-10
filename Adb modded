@@ -418,7 +418,8 @@ local function ScanForStand()
     return standFound, standName, standData
 end
 
-print("[ABD] Part 8/27 - Stand Detection Loaded"--[[)
+print("[ABD] Part 8/27 - Stand Detection Loaded")
+--[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 9/27
     AUTO SUMMON STAND
