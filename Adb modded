@@ -1,8 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local DamageEvent = ReplicatedStorage:FindFirstChild("Damage") or ReplicatedStorage:FindFirstChild("Dmg")
@@ -13,16 +11,16 @@ _G.SelectedBoss = "All Bosses"
 _G.ActiveSkills = {E = true, R = true, T = true, Y = true, F = true, Z = true, X = true, C = true, V = true, B = true, J = true}
 _G.AutoClickM1 = false
 _G.AutoRollStand = false
-_G.TeleportToBoss = false
-_G.TeleportDistance = 3.5
 
 local KeyMapping = {
     E = Enum.KeyCode.E, R = Enum.KeyCode.R, T = Enum.KeyCode.T,
     Y = Enum.KeyCode.Y, F = Enum.KeyCode.F, Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C, V = Enum.KeyCode.V, B = Enum.KeyCode.B, J = Enum.KeyCode.J
 }
 
+_G.SummonDelay = _G.SummonDelay or 1.5
+_G.SummonDelayInput = tostring(_G.SummonDelay)
 local function AutoSummonStand()
-    task.wait(1.5)
+    task.wait(_G.SummonDelay)
     pcall(function()
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
         task.wait(0.05)
@@ -52,21 +50,20 @@ OpenCloseBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenCloseBtn).CornerRadius = UDim.new(0, 6)
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size, MainFrame.Position = UDim2.new(0, 480, 0, 430), UDim2.new(0.05, 0, 0.12, 0)
+MainFrame.Size, MainFrame.Position = UDim2.new(0, 480, 0, 390), UDim2.new(0.05, 0, 0.15, 0)
 MainFrame.BackgroundColor3, MainFrame.BorderSizePixel = Color3.fromRGB(20, 20, 20), 0
 MainFrame.Active, MainFrame.Draggable, MainFrame.Parent = true, true, ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
 local Title = Instance.new("TextLabel")
 Title.Size, Title.BackgroundColor3 = UDim2.new(1, 0, 0, 40), Color3.fromRGB(30, 30, 30)
-Title.Text, Title.TextColor3, Title.TextSize = "   ABD MODDED - TELEPORT KILL AURA", Color3.fromRGB(255, 255, 255), 14
+Title.Text, Title.TextColor3, Title.TextSize = "   ABD MODDED - BEHIND TP & SKILL MANAGER", Color3.fromRGB(255, 255, 255), 14
 Title.TextXAlignment, Title.Font, Title.Parent = Enum.TextXAlignment.Left, Enum.Font.SourceSansBold, MainFrame
 Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
 
 OpenCloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
-
 local ToggleKillAura = Instance.new("TextButton")
 ToggleKillAura.Size, ToggleKillAura.Position = UDim2.new(0, 440, 0, 40), UDim2.new(0, 20, 0, 50)
 ToggleKillAura.BackgroundColor3, ToggleKillAura.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
@@ -138,14 +135,15 @@ local SkillListLayout = Instance.new("UIListLayout")
 SkillListLayout.Padding, SkillListLayout.Parent = UDim.new(0, 4), SkillFrame
 
 local function BuildSkillToggles()
-    task.wait()
-    local total = 0
-    for _,v in ipairs(SkillFrame:GetChildren()) do
-        if v:IsA("TextButton") then
-            total = total + 28
-        end
+
+task.wait()
+local total = 0
+for _,v in ipairs(SkillFrame:GetChildren()) do
+    if v:IsA("TextButton") then
+        total = total + 28
     end
-    SkillFrame.CanvasSize = UDim2.new(0,0,0,total)
+end
+SkillFrame.CanvasSize = UDim2.new(0,0,0,total)
     local order = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"}
     for _, k in pairs(order) do
         local SkillBtn = Instance.new("TextButton")
@@ -184,18 +182,6 @@ ToggleM1.MouseButton1Click:Connect(function()
     ToggleM1.Text = _G.AutoClickM1 and "AUTO CLICK M1: ON" or "AUTO CLICK M1: OFF"
 end)
 
-local ToggleTeleport = Instance.new("TextButton")
-ToggleTeleport.Size, ToggleTeleport.Position = UDim2.new(0, 440, 0, 40), UDim2.new(0, 20, 0, 380)
-ToggleTeleport.BackgroundColor3, ToggleTeleport.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
-ToggleTeleport.Text, ToggleTeleport.Font, ToggleTeleport.TextSize = "TELEPORT TO BOSS: OFF", Enum.Font.SourceSansBold, 14
-ToggleTeleport.Parent = MainFrame
-Instance.new("UICorner", ToggleTeleport).CornerRadius = UDim.new(0, 6)
-
-ToggleTeleport.MouseButton1Click:Connect(function()
-    _G.TeleportToBoss = not _G.TeleportToBoss
-    ToggleTeleport.BackgroundColor3 = _G.TeleportToBoss and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(180, 40, 40)
-    ToggleTeleport.Text = _G.TeleportToBoss and "TELEPORT TO BOSS: ON" or "TELEPORT TO BOSS: OFF"
-end)
 
 local SkillRounds = {
     {"E","R"},
@@ -206,99 +192,40 @@ local SkillRounds = {
 }
 
 local CurrentRound = 1
-local function GetTargets()
-    local targets = {}
-    for _, npc in pairs(workspace:GetChildren()) do
-        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
-            if not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
-                if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
-                    table.insert(targets, npc)
-                end
-            end
-        end
-    end
-    return targets
-end
-
-local function TeleportBehindTarget(character, targetPart)
-    if not character or not targetPart then return end
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
-    
-    local targetPos = targetPart.Position
-    local targetLook = targetPart.CFrame.LookVector
-    
-    local behindPos = targetPos - targetLook * _G.TeleportDistance
-    
-    rootPart.CFrame = CFrame.new(behindPos, targetPos)
-end
-
-local function GetNearestTarget(character, targets)
-    if not character or #targets == 0 then return nil end
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return nil end
-    
-    local nearest = nil
-    local nearestDist = math.huge
-    
-    for _, target in pairs(targets) do
-        local targetRoot = target:FindFirstChild("HumanoidRootPart")
-        if targetRoot then
-            local dist = (rootPart.Position - targetRoot.Position).Magnitude
-            if dist < nearestDist then
-                nearestDist = dist
-                nearest = target
-            end
-        end
-    end
-    return nearest
-end
 
 task.spawn(function()
-    while true do
-        task.wait(0.05)
-        if _G.KillAura or _G.TeleportToBoss then
+    while true do task.wait(0.2)
+        if _G.KillAura then
             pcall(function()
                 local character = LocalPlayer.Character
                 local rootPart = character and character:FindFirstChild("HumanoidRootPart")
                 if not rootPart then return end
-                
-                local targets = GetTargets()
-                if #targets == 0 then return end
-                
-                local target = GetNearestTarget(character, targets)
-                if not target then return end
-                
-                local targetRoot = target:FindFirstChild("HumanoidRootPart")
-                if not targetRoot then return end
-                
-                -- Teleport to behind boss liên tục khi bật TP hoặc KillAura
-                if _G.TeleportToBoss or _G.KillAura then
-                    TeleportBehindTarget(character, targetRoot)
-                    task.wait(0.03)
-                end
-                
-                if _G.KillAura then
-                    rootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3.5)
-                    DamageEvent:FireServer(target.Humanoid, targetRoot.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0)
-                    task.wait(0.05)
-                    
-                    local Round = SkillRounds[CurrentRound]
-                    for _, key in ipairs(Round) do
-                        if not _G.KillAura then break end
-                        if _G.ActiveSkills[key] then
-                            pcall(function()
-                                VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
-                                task.wait(0.10)
-                                VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
-                            end)
-                            task.wait(0.15)
+                for _, npc in pairs(workspace:GetChildren()) do
+                    if not _G.KillAura then break end
+                    if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
+                        if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
+                            rootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
+                            DamageEvent:FireServer(npc.Humanoid, npc.HumanoidRootPart.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0)
+                            task.wait(0.05)
+                            local Round = SkillRounds[CurrentRound]
+
+                            for _, key in ipairs(Round) do
+                                if not _G.KillAura then break end
+                                if _G.ActiveSkills[key] then
+                                    pcall(function()
+                                        VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
+                                        task.wait(0.10)
+                                        VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
+                                    end)
+                                    task.wait(0.15)
+                                end
+                            end
+
+                            CurrentRound = CurrentRound + 1
+                            if CurrentRound > #SkillRounds then
+                                CurrentRound = 1
+                            end
                         end
-                    end
-                    
-                    CurrentRound = CurrentRound + 1
-                    if CurrentRound > #SkillRounds then
-                        CurrentRound = 1
                     end
                 end
             end)
@@ -307,38 +234,33 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while true do
-        task.wait(0.1)
+    while true do task.wait(0.1)
         if _G.AutoClickM1 then
             pcall(function()
+                local isNear = false
                 local character = LocalPlayer.Character
                 local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-                if not rootPart then return end
-                
-                local isNear = false
-                local targets = GetTargets()
-                for _, target in pairs(targets) do
-                    local targetRoot = target:FindFirstChild("HumanoidRootPart")
-                    if targetRoot and (rootPart.Position - targetRoot.Position).Magnitude <= 20 then
-                        isNear = true
-                        break
+                if rootPart then
+                    for _, npc in pairs(workspace:GetChildren()) do
+                        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
+                            if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
+                                if (rootPart.Position - npc.HumanoidRootPart.Position).Magnitude <= 20 then isNear = true break end
+                            end
+                        end
                     end
                 end
-                
                 if isNear then
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                    task.wait(0.02)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0) task.wait(0.02)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
                 end
             end)
         end
     end
 end)
-
 _G.RollDelay = 3.0
 
 local StandFrame = Instance.new("Frame")
-StandFrame.Size, StandFrame.Position = UDim2.new(0, 240, 0, 150), UDim2.new(0.52, 0, 0.12, 0)
+StandFrame.Size, StandFrame.Position = UDim2.new(0, 240, 0, 150), UDim2.new(0.52, 0, 0.15, 0)
 StandFrame.BackgroundColor3, StandFrame.BorderSizePixel = Color3.fromRGB(25, 25, 25), 0
 StandFrame.Active, StandFrame.Draggable, StandFrame.Parent = true, true, ScreenGui
 Instance.new("UICorner", StandFrame).CornerRadius = UDim.new(0, 8)
@@ -450,7 +372,7 @@ task.spawn(function()
             pcall(function()
                 InfoLabel.Text = "Đang ăn Rokakaka Fruit..."
                 local usedRoka = UseItem("Rokakaka Fruit") or UseItem("Rokakaka") or UseItem("Roka")
-                task.wait(0.5)
+                task.wait(1.5)
                 
                 if _G.AutoRollStand then
                     BypassYesButton()
@@ -478,3 +400,5 @@ task.spawn(function()
         end
     end
 end)
+
+-- Added configurable input delay placeholder
