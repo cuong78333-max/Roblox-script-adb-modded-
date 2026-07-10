@@ -1,3 +1,8 @@
+-- ============================================================================
+-- ABD MODDED - ADVANCED SKILL COMBO & AIMBOT INTEGRATION
+-- Version: v5_skill_combo_enhanced
+-- ============================================================================
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -6,19 +11,62 @@ local LocalPlayer = Players.LocalPlayer
 local DamageEvent = ReplicatedStorage:FindFirstChild("Damage") or ReplicatedStorage:FindFirstChild("Dmg")
 if not DamageEvent then return end
 
+-- ============================================================================
+-- CONFIGURATION
+-- ============================================================================
+
 _G.KillAura = false
 _G.SelectedBoss = "All Bosses"
 _G.ActiveSkills = {E = true, R = true, T = true, Y = true, F = true, Z = true, X = true, C = true, V = true, B = true, J = true}
 _G.AutoClickM1 = false
 _G.AutoRollStand = false
+_G.SummonDelay = 1.5
+_G.RollDelay = 3.0
+
+-- Skill combo configurations with timing
+_G.SkillCombos = {
+    Combo1 = {
+        Keys = {"E", "R"},
+        Delay = 0.2,
+        Enabled = true
+    },
+    Combo2 = {
+        Keys = {"T", "Y", "F"},
+        Delay = 0.15,
+        Enabled = true
+    },
+    Combo3 = {
+        Keys = {"Z", "X", "C"},
+        Delay = 0.2,
+        Enabled = true
+    },
+    Combo4 = {
+        Keys = {"V", "B", "J"},
+        Delay = 0.25,
+        Enabled = true
+    },
+    Combo5 = {
+        Keys = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"},
+        Delay = 0.1,
+        Enabled = false
+    }
+}
+
+-- ============================================================================
+-- KEY MAPPING
+-- ============================================================================
 
 local KeyMapping = {
     E = Enum.KeyCode.E, R = Enum.KeyCode.R, T = Enum.KeyCode.T,
-    Y = Enum.KeyCode.Y, F = Enum.KeyCode.F, Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C, V = Enum.KeyCode.V, B = Enum.KeyCode.B, J = Enum.KeyCode.J
+    Y = Enum.KeyCode.Y, F = Enum.KeyCode.F, Z = Enum.KeyCode.Z,
+    X = Enum.KeyCode.X, C = Enum.KeyCode.C, V = Enum.KeyCode.V,
+    B = Enum.KeyCode.B, J = Enum.KeyCode.J
 }
 
-_G.SummonDelay = _G.SummonDelay or 1.5
-_G.SummonDelayInput = tostring(_G.SummonDelay)
+-- ============================================================================
+-- AUTO SUMMON STAND
+-- ============================================================================
+
 local function AutoSummonStand()
     task.wait(_G.SummonDelay)
     pcall(function()
@@ -33,6 +81,10 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 task.spawn(AutoSummonStand)
 
+-- ============================================================================
+-- UI CREATION
+-- ============================================================================
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ABDM_AdvancedMenu_V6_Fixed"
 pcall(function() 
@@ -42,114 +94,186 @@ pcall(function()
 end)
 ScreenGui.Parent = game:GetService("CoreGui")
 
+-- Open/Close Button
 local OpenCloseBtn = Instance.new("TextButton")
-OpenCloseBtn.Size, OpenCloseBtn.Position = UDim2.new(0, 60, 0, 30), UDim2.new(0, 10, 0.4, 0)
-OpenCloseBtn.BackgroundColor3, OpenCloseBtn.Text = Color3.fromRGB(40, 180, 40), "[ ABD ]"
-OpenCloseBtn.TextColor3, OpenCloseBtn.Font, OpenCloseBtn.TextSize = Color3.fromRGB(255, 255, 255), Enum.Font.SourceSansBold, 14
+OpenCloseBtn.Size = UDim2.new(0, 60, 0, 30)
+OpenCloseBtn.Position = UDim2.new(0, 10, 0.4, 0)
+OpenCloseBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+OpenCloseBtn.Text = "[ ABD ]"
+OpenCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenCloseBtn.Font = Enum.Font.SourceSansBold
+OpenCloseBtn.TextSize = 14
 OpenCloseBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenCloseBtn).CornerRadius = UDim.new(0, 6)
 
+-- Main Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size, MainFrame.Position = UDim2.new(0, 480, 0, 390), UDim2.new(0.05, 0, 0.15, 0)
-MainFrame.BackgroundColor3, MainFrame.BorderSizePixel = Color3.fromRGB(20, 20, 20), 0
-MainFrame.Active, MainFrame.Draggable, MainFrame.Parent = true, true, ScreenGui
+MainFrame.Size = UDim2.new(0, 520, 0, 460)
+MainFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
+-- Title
 local Title = Instance.new("TextLabel")
-Title.Size, Title.BackgroundColor3 = UDim2.new(1, 0, 0, 40), Color3.fromRGB(30, 30, 30)
-Title.Text, Title.TextColor3, Title.TextSize = "   ABD MODDED - BEHIND TP & SKILL MANAGER", Color3.fromRGB(255, 255, 255), 14
-Title.TextXAlignment, Title.Font, Title.Parent = Enum.TextXAlignment.Left, Enum.Font.SourceSansBold, MainFrame
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Title.Text = "   ABD MODDED - SKILL COMBO + AIMBOT"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = MainFrame
 Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
 
 OpenCloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
+
+-- ============================================================================
+-- KILL AURA + TP BUTTON (Integrated)
+-- ============================================================================
+
 local ToggleKillAura = Instance.new("TextButton")
-ToggleKillAura.Size, ToggleKillAura.Position = UDim2.new(0, 440, 0, 40), UDim2.new(0, 20, 0, 50)
-ToggleKillAura.BackgroundColor3, ToggleKillAura.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
-ToggleKillAura.Text, ToggleKillAura.Font, ToggleKillAura.TextSize = "TELEPORT KILL AURA + AUTO SKILL: OFF", Enum.Font.SourceSansBold, 14
+ToggleKillAura.Size = UDim2.new(0, 480, 0, 40)
+ToggleKillAura.Position = UDim2.new(0, 20, 0, 50)
+ToggleKillAura.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+ToggleKillAura.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleKillAura.Text = "⚔️ KILL AURA + AIMBOT SKILL: OFF"
+ToggleKillAura.Font = Enum.Font.SourceSansBold
+ToggleKillAura.TextSize = 14
 ToggleKillAura.Parent = MainFrame
 Instance.new("UICorner", ToggleKillAura).CornerRadius = UDim.new(0, 6)
 
 ToggleKillAura.MouseButton1Click:Connect(function()
     _G.KillAura = not _G.KillAura
     ToggleKillAura.BackgroundColor3 = _G.KillAura and Color3.fromRGB(40, 180, 40) or Color3.fromRGB(180, 40, 40)
-    ToggleKillAura.Text = _G.KillAura and "TELEPORT KILL AURA + AUTO SKILL: ON" or "TELEPORT KILL AURA + AUTO SKILL: OFF"
+    ToggleKillAura.Text = _G.KillAura and "⚔️ KILL AURA + AIMBOT SKILL: ON" or "⚔️ KILL AURA + AIMBOT SKILL: OFF"
 end)
 
+-- ============================================================================
+-- BOSS SELECTOR (Scrolling Frame)
+-- ============================================================================
+
 local SelectTitle = Instance.new("TextLabel")
-SelectTitle.Size, SelectTitle.Position = UDim2.new(0, 210, 0, 20), UDim2.new(0, 20, 0, 100)
-SelectTitle.BackgroundTransparency, SelectTitle.Text = 1, "MỤC TIÊU: " .. _G.SelectedBoss
-SelectTitle.TextColor3, SelectTitle.TextSize, SelectTitle.Font = Color3.fromRGB(255, 200, 0), 13, Enum.Font.SourceSansBold
-SelectTitle.TextXAlignment, SelectTitle.Parent = Enum.TextXAlignment.Left, MainFrame
+SelectTitle.Size = UDim2.new(0, 210, 0, 20)
+SelectTitle.Position = UDim2.new(0, 20, 0, 100)
+SelectTitle.BackgroundTransparency = 1
+SelectTitle.Text = "🎯 MỤC TIÊU: " .. _G.SelectedBoss
+SelectTitle.TextColor3 = Color3.fromRGB(255, 200, 0)
+SelectTitle.TextSize = 13
+SelectTitle.Font = Enum.Font.SourceSansBold
+SelectTitle.TextXAlignment = Enum.TextXAlignment.Left
+SelectTitle.Parent = MainFrame
 
 local ScrollingFrame = Instance.new("ScrollingFrame")
-ScrollingFrame.Size, ScrollingFrame.Position = UDim2.new(0, 210, 0, 200), UDim2.new(0, 20, 0, 125)
-ScrollingFrame.BackgroundColor3, ScrollingFrame.BorderSizePixel, ScrollingFrame.ScrollBarThickness = Color3.fromRGB(10, 10, 10), 0, 4
+ScrollingFrame.Size = UDim2.new(0, 210, 0, 200)
+ScrollingFrame.Position = UDim2.new(0, 20, 0, 125)
+ScrollingFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.ScrollBarThickness = 4
 ScrollingFrame.Parent = MainFrame
 local ListLayout = Instance.new("UIListLayout")
-ListLayout.Padding, ListLayout.Parent = UDim.new(0, 4), ScrollingFrame
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Parent = ScrollingFrame
+
+-- ============================================================================
+-- REFRESH DROPDOWN FUNCTION
+-- ============================================================================
 
 local function RefreshDropdown()
     if not MainFrame.Visible then return end
-    for _, child in pairs(ScrollingFrame:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    for _, child in pairs(ScrollingFrame:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
     local AllBtn = Instance.new("TextButton")
-    AllBtn.Size, AllBtn.Font, AllBtn.TextSize = UDim2.new(1, -6, 0, 30), Enum.Font.SourceSansBold, 12
+    AllBtn.Size = UDim2.new(1, -6, 0, 30)
+    AllBtn.Font = Enum.Font.SourceSansBold
+    AllBtn.TextSize = 12
     AllBtn.BackgroundColor3 = (_G.SelectedBoss == "All Bosses") and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(25, 25, 25)
-    AllBtn.Text, AllBtn.TextColor3, AllBtn.Parent = "⭐ ALL BOSSES", Color3.fromRGB(255, 255, 255), ScrollingFrame
+    AllBtn.Text = "⭐ ALL BOSSES"
+    AllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AllBtn.Parent = ScrollingFrame
     Instance.new("UICorner", AllBtn).CornerRadius = UDim.new(0, 4)
-    AllBtn.MouseButton1Click:Connect(function() _G.SelectedBoss = "All Bosses" SelectTitle.Text = "MỤC TIÊU: All Bosses" RefreshDropdown() end)
+    AllBtn.MouseButton1Click:Connect(function()
+        _G.SelectedBoss = "All Bosses"
+        SelectTitle.Text = "🎯 MỤC TIÊU: All Bosses"
+        RefreshDropdown()
+    end)
+    
     local count = 1
     for _, npc in pairs(workspace:GetChildren()) do
         if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
             if not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
                 count = count + 1
                 local BossBtn = Instance.new("TextButton")
-                BossBtn.Size, BossBtn.Font, BossBtn.TextSize = UDim2.new(1, -6, 0, 30), Enum.Font.SourceSans, 12
+                BossBtn.Size = UDim2.new(1, -6, 0, 30)
+                BossBtn.Font = Enum.Font.SourceSans
+                BossBtn.TextSize = 12
                 BossBtn.BackgroundColor3 = (_G.SelectedBoss == npc.Name) and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(25, 25, 25)
-                BossBtn.Text, BossBtn.TextColor3, BossBtn.Parent = npc.Name .. " [" .. math.floor(npc.Humanoid.Health) .. "]", Color3.fromRGB(220, 220, 220), ScrollingFrame
+                BossBtn.Text = npc.Name .. " [" .. math.floor(npc.Humanoid.Health) .. "]"
+                BossBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+                BossBtn.Parent = ScrollingFrame
                 Instance.new("UICorner", BossBtn).CornerRadius = UDim.new(0, 4)
-                BossBtn.MouseButton1Click:Connect(function() _G.SelectedBoss = npc.Name SelectTitle.Text = "MỤC TIÊU: " .. npc.Name RefreshDropdown() end)
+                BossBtn.MouseButton1Click:Connect(function()
+                    _G.SelectedBoss = npc.Name
+                    SelectTitle.Text = "🎯 MỤC TIÊU: " .. npc.Name
+                    RefreshDropdown()
+                end)
             end
         end
     end
     ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, count * 34)
 end
-task.spawn(function() while task.wait(3) do pcall(RefreshDropdown) end end)
+
+task.spawn(function()
+    while task.wait(3) do
+        pcall(RefreshDropdown)
+    end
+end)
+
+-- ============================================================================
+-- SKILL TOGGLES (Individual Keys)
+-- ============================================================================
 
 local SkillTitle = Instance.new("TextLabel")
-SkillTitle.Size, SkillTitle.Position = UDim2.new(0, 210, 0, 20), UDim2.new(0, 250, 0, 100)
-SkillTitle.BackgroundTransparency, SkillTitle.Text = 1, " TỰ ĐỘNG BẤM PHÍM NÀO:"
-SkillTitle.TextColor3, SkillTitle.TextSize, SkillTitle.Font = Color3.fromRGB(0, 255, 200), 13, Enum.Font.SourceSansBold
-SkillTitle.TextXAlignment, SkillTitle.Parent = Enum.TextXAlignment.Left, MainFrame
+SkillTitle.Size = UDim2.new(0, 210, 0, 20)
+SkillTitle.Position = UDim2.new(0, 250, 0, 100)
+SkillTitle.BackgroundTransparency = 1
+SkillTitle.Text = " ⌨️ TỰ ĐỘNG BẤM PHÍM:"
+SkillTitle.TextColor3 = Color3.fromRGB(0, 255, 200)
+SkillTitle.TextSize = 13
+SkillTitle.Font = Enum.Font.SourceSansBold
+SkillTitle.TextXAlignment = Enum.TextXAlignment.Left
+SkillTitle.Parent = MainFrame
 
 local SkillFrame = Instance.new("ScrollingFrame")
-SkillFrame.Size, SkillFrame.Position = UDim2.new(0, 210, 0, 200), UDim2.new(0, 250, 0, 125)
-SkillFrame.BackgroundColor3 = Color3.fromRGB(10,10,10)
+SkillFrame.Size = UDim2.new(0, 210, 0, 90)
+SkillFrame.Position = UDim2.new(0, 250, 0, 125)
+SkillFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 SkillFrame.BorderSizePixel = 0
 SkillFrame.ScrollBarThickness = 4
-SkillFrame.CanvasSize = UDim2.new(0,0,0,0)
 SkillFrame.Parent = MainFrame
 Instance.new("UICorner", SkillFrame).CornerRadius = UDim.new(0, 6)
 local SkillListLayout = Instance.new("UIListLayout")
-SkillListLayout.Padding, SkillListLayout.Parent = UDim.new(0, 4), SkillFrame
+SkillListLayout.Padding = UDim.new(0, 4)
+SkillListLayout.Parent = SkillFrame
 
 local function BuildSkillToggles()
-
-task.wait()
-local total = 0
-for _,v in ipairs(SkillFrame:GetChildren()) do
-    if v:IsA("TextButton") then
-        total = total + 28
-    end
-end
-SkillFrame.CanvasSize = UDim2.new(0,0,0,total)
     local order = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"}
     for _, k in pairs(order) do
         local SkillBtn = Instance.new("TextButton")
-        SkillBtn.Size, SkillBtn.Font, SkillBtn.TextSize = UDim2.new(1, 0, 0, 24), Enum.Font.SourceSansBold, 11
+        SkillBtn.Size = UDim2.new(1, 0, 0, 22)
+        SkillBtn.Font = Enum.Font.SourceSansBold
+        SkillBtn.TextSize = 11
         SkillBtn.BackgroundColor3 = _G.ActiveSkills[k] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
-        SkillBtn.Text, SkillBtn.TextColor3, SkillBtn.Parent = "Phím [ " .. k .. " ]: ON", Color3.fromRGB(255, 255, 255), SkillFrame
+        SkillBtn.Text = "Phím [ " .. k .. " ]: " .. (_G.ActiveSkills[k] and "ON" or "OFF")
+        SkillBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        SkillBtn.Parent = SkillFrame
         Instance.new("UICorner", SkillBtn).CornerRadius = UDim.new(0, 4)
         SkillBtn.MouseButton1Click:Connect(function()
             _G.ActiveSkills[k] = not _G.ActiveSkills[k]
@@ -160,140 +284,168 @@ SkillFrame.CanvasSize = UDim2.new(0,0,0,total)
 end
 BuildSkillToggles()
 
-task.wait()
-local total = 0
-for _,v in ipairs(SkillFrame:GetChildren()) do
-    if v:IsA("TextButton") then
-        total = total + 28
+-- ============================================================================
+-- SKILL COMBO TOGGLES (NEW)
+-- ============================================================================
+
+local ComboTitle = Instance.new("TextLabel")
+ComboTitle.Size = UDim2.new(0, 210, 0, 18)
+ComboTitle.Position = UDim2.new(0, 250, 0, 218)
+ComboTitle.BackgroundTransparency = 1
+ComboTitle.Text = " 🔄 SKILL COMBO (vòng lặp):"
+ComboTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
+ComboTitle.TextSize = 12
+ComboTitle.Font = Enum.Font.SourceSansBold
+ComboTitle.TextXAlignment = Enum.TextXAlignment.Left
+ComboTitle.Parent = MainFrame
+
+local ComboFrame = Instance.new("ScrollingFrame")
+ComboFrame.Size = UDim2.new(0, 250, 0, 170)
+ComboFrame.Position = UDim2.new(0, 250, 0, 240)
+ComboFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+ComboFrame.BorderSizePixel = 0
+ComboFrame.ScrollBarThickness = 4
+ComboFrame.Parent = MainFrame
+Instance.new("UICorner", ComboFrame).CornerRadius = UDim.new(0, 6)
+local ComboListLayout = Instance.new("UIListLayout")
+ComboListLayout.Padding = UDim.new(0, 4)
+ComboListLayout.Parent = ComboFrame
+
+local function BuildComboToggles()
+    local comboOrder = {"Combo1", "Combo2", "Combo3", "Combo4", "Combo5"}
+    for _, comboName in pairs(comboOrder) do
+        local combo = _G.SkillCombos[comboName]
+        if combo then
+            local ComboBtn = Instance.new("TextButton")
+            ComboBtn.Size = UDim2.new(1, 0, 0, 28)
+            ComboBtn.Font = Enum.Font.SourceSansBold
+            ComboBtn.TextSize = 11
+            
+            local keysStr = table.concat(combo.Keys, " → ")
+            local delayStr = string.format("%.2fs", combo.Delay)
+            local statusStr = combo.Enabled and "ON" or "OFF"
+            ComboBtn.Text = "🔁 " .. comboName .. " [" .. keysStr .. "] " .. delayStr .. ": " .. statusStr
+            ComboBtn.BackgroundColor3 = combo.Enabled and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
+            ComboBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            ComboBtn.Parent = ComboFrame
+            Instance.new("UICorner", ComboBtn).CornerRadius = UDim.new(0, 4)
+            
+            ComboBtn.MouseButton1Click:Connect(function()
+                _G.SkillCombos[comboName].Enabled = not _G.SkillCombos[comboName].Enabled
+                local newStatus = _G.SkillCombos[comboName].Enabled and "ON" or "OFF"
+                ComboBtn.BackgroundColor3 = _G.SkillCombos[comboName].Enabled and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
+                ComboBtn.Text = "🔁 " .. comboName .. " [" .. table.concat(_G.SkillCombos[comboName].Keys, " → ") .. "] " .. string.format("%.2fs", _G.SkillCombos[comboName].Delay) .. ": " .. newStatus
+            end)
+        end
     end
+    ComboFrame.CanvasSize = UDim2.new(0, 0, 0, (#comboOrder + 1) * 32)
 end
-SkillFrame.CanvasSize = UDim2.new(0,0,0,total)
+BuildComboToggles()
+
+-- ============================================================================
+-- AUTO CLICK M1
+-- ============================================================================
 
 local ToggleM1 = Instance.new("TextButton")
-ToggleM1.Size, ToggleM1.Position = UDim2.new(0, 440, 0, 40), UDim2.new(0, 20, 0, 335)
-ToggleM1.BackgroundColor3, ToggleM1.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
-ToggleM1.Text, ToggleM1.Font, ToggleM1.TextSize = "AUTO CLICK M1: OFF", Enum.Font.SourceSansBold, 14
+ToggleM1.Size = UDim2.new(0, 220, 0, 35)
+ToggleM1.Position = UDim2.new(0, 20, 0, 410)
+ToggleM1.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+ToggleM1.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleM1.Text = "🖱️ AUTO M1: OFF"
+ToggleM1.Font = Enum.Font.SourceSansBold
+ToggleM1.TextSize = 13
 ToggleM1.Parent = MainFrame
 Instance.new("UICorner", ToggleM1).CornerRadius = UDim.new(0, 6)
 
 ToggleM1.MouseButton1Click:Connect(function()
     _G.AutoClickM1 = not _G.AutoClickM1
     ToggleM1.BackgroundColor3 = _G.AutoClickM1 and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(180, 40, 40)
-    ToggleM1.Text = _G.AutoClickM1 and "AUTO CLICK M1: ON" or "AUTO CLICK M1: OFF"
+    ToggleM1.Text = _G.AutoClickM1 and "🖱️ AUTO M1: ON" or "🖱️ AUTO M1: OFF"
 end)
 
+-- ============================================================================
+-- AUTO SUMMON STAND TOGGLE (Integration)
+-- ============================================================================
 
-local SkillRounds = {
-    {"E","R"},
-    {"T","Y"},
-    {"F","Z"},
-    {"X","C"},
-    {"V","B","J"}
-}
+local ToggleSummon = Instance.new("TextButton")
+ToggleSummon.Size = UDim2.new(0, 220, 0, 35)
+ToggleSummon.Position = UDim2.new(0, 260, 0, 410)
+ToggleSummon.BackgroundColor3 = Color3.fromRGB(40, 120, 40)
+ToggleSummon.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleSummon.Text = "🔮 AUTO SUMMON: ON"
+ToggleSummon.Font = Enum.Font.SourceSansBold
+ToggleSummon.TextSize = 13
+ToggleSummon.Parent = MainFrame
+Instance.new("UICorner", ToggleSummon).CornerRadius = UDim.new(0, 6)
 
-local CurrentRound = 1
-
-task.spawn(function()
-    while true do task.wait(0.2)
-        if _G.KillAura then
-            pcall(function()
-                local character = LocalPlayer.Character
-                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-                if not rootPart then return end
-                for _, npc in pairs(workspace:GetChildren()) do
-                    if not _G.KillAura then break end
-                    if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
-                        if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
-                            rootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
-                            DamageEvent:FireServer(npc.Humanoid, npc.HumanoidRootPart.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0)
-                            task.wait(0.05)
-                            local Round = SkillRounds[CurrentRound]
-
-                            for _, key in ipairs(Round) do
-                                if not _G.KillAura then break end
-                                if _G.ActiveSkills[key] then
-                                    pcall(function()
-                                        VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
-                                        task.wait(0.10)
-                                        VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
-                                    end)
-                                    task.wait(0.15)
-                                end
-                            end
-
-                            CurrentRound = CurrentRound + 1
-                            if CurrentRound > #SkillRounds then
-                                CurrentRound = 1
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
+ToggleSummon.MouseButton1Click:Connect(function()
+    _G.AutoSummonEnabled = not (_G.AutoSummonEnabled or false)
+    ToggleSummon.BackgroundColor3 = _G.AutoSummonEnabled and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(120, 40, 40)
+    ToggleSummon.Text = _G.AutoSummonEnabled and "🔮 AUTO SUMMON: ON" or "🔮 AUTO SUMMON: OFF"
 end)
+_G.AutoSummonEnabled = true
 
-task.spawn(function()
-    while true do task.wait(0.1)
-        if _G.AutoClickM1 then
-            pcall(function()
-                local isNear = false
-                local character = LocalPlayer.Character
-                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-                if rootPart then
-                    for _, npc in pairs(workspace:GetChildren()) do
-                        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
-                            if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
-                                if (rootPart.Position - npc.HumanoidRootPart.Position).Magnitude <= 20 then isNear = true break end
-                            end
-                        end
-                    end
-                end
-                if isNear then
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0) task.wait(0.02)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                end
-            end)
-        end
-    end
-end)
-_G.RollDelay = 3.0
+-- ============================================================================
+-- STAND AUTOMATION FRAME
+-- ============================================================================
 
 local StandFrame = Instance.new("Frame")
-StandFrame.Size, StandFrame.Position = UDim2.new(0, 240, 0, 150), UDim2.new(0.52, 0, 0.15, 0)
-StandFrame.BackgroundColor3, StandFrame.BorderSizePixel = Color3.fromRGB(25, 25, 25), 0
-StandFrame.Active, StandFrame.Draggable, StandFrame.Parent = true, true, ScreenGui
+StandFrame.Size = UDim2.new(0, 240, 0, 150)
+StandFrame.Position = UDim2.new(0.58, 0, 0.15, 0)
+StandFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+StandFrame.BorderSizePixel = 0
+StandFrame.Active = true
+StandFrame.Draggable = true
+StandFrame.Parent = ScreenGui
 Instance.new("UICorner", StandFrame).CornerRadius = UDim.new(0, 8)
 
 local StandTitle = Instance.new("TextLabel")
-StandTitle.Size, StandTitle.BackgroundColor3 = UDim2.new(1, 0, 0, 30), Color3.fromRGB(35, 35, 35)
-StandTitle.Text, StandTitle.TextColor3, StandTitle.TextSize = "   STAND AUTOMATION", Color3.fromRGB(255, 255, 255), 12
-StandTitle.TextXAlignment, StandTitle.Font, StandTitle.Parent = Enum.TextXAlignment.Left, Enum.Font.SourceSansBold, StandFrame
+StandTitle.Size = UDim2.new(1, 0, 0, 30)
+StandTitle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+StandTitle.Text = "   STAND AUTOMATION"
+StandTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+StandTitle.TextSize = 12
+StandTitle.TextXAlignment = Enum.TextXAlignment.Left
+StandTitle.Font = Enum.Font.SourceSansBold
+StandTitle.Parent = StandFrame
 Instance.new("UICorner", StandTitle).CornerRadius = UDim.new(0, 8)
 
 local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size, InfoLabel.Position = UDim2.new(1, -20, 0, 25), UDim2.new(0, 10, 0, 35)
+InfoLabel.Size = UDim2.new(1, -20, 0, 25)
+InfoLabel.Position = UDim2.new(0, 10, 0, 35)
 InfoLabel.BackgroundTransparency = 1
 InfoLabel.Text = "CHẾ ĐỘ GACHA TUẦN TỰ"
-InfoLabel.TextColor3, InfoLabel.Font, InfoLabel.TextSize = Color3.fromRGB(255, 165, 0), Enum.Font.SourceSansBold, 12
-InfoLabel.TextXAlignment, InfoLabel.Parent = Enum.TextXAlignment.Center, StandFrame
+InfoLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+InfoLabel.Font = Enum.Font.SourceSansBold
+InfoLabel.TextSize = 12
+InfoLabel.TextXAlignment = Enum.TextXAlignment.Center
+InfoLabel.Parent = StandFrame
 
 local DelayFrame = Instance.new("Frame")
-DelayFrame.Size, DelayFrame.Position = UDim2.new(1, -20, 0, 25), UDim2.new(0, 10, 0, 65)
+DelayFrame.Size = UDim2.new(1, -20, 0, 25)
+DelayFrame.Position = UDim2.new(0, 10, 0, 65)
 DelayFrame.BackgroundTransparency = 1
 DelayFrame.Parent = StandFrame
 
 local DelayText = Instance.new("TextLabel")
-DelayText.Size, DelayText.Position = UDim2.new(0, 120, 1, 0), UDim2.new(0, 0, 0, 0)
+DelayText.Size = UDim2.new(0, 120, 1, 0)
+DelayText.Position = UDim2.new(0, 0, 0, 0)
 DelayText.BackgroundTransparency = 1
 DelayText.Text = "Thời gian chờ (s): " .. tostring(_G.RollDelay)
-DelayText.TextColor3, DelayText.Font, DelayText.TextSize = Color3.fromRGB(200, 200, 200), Enum.Font.SourceSansBold, 11
-DelayText.TextXAlignment, DelayText.Parent = Enum.TextXAlignment.Left, DelayFrame
+DelayText.TextColor3 = Color3.fromRGB(200, 200, 200)
+DelayText.Font = Enum.Font.SourceSansBold
+DelayText.TextSize = 11
+DelayText.TextXAlignment = Enum.TextXAlignment.Left
+DelayText.Parent = DelayFrame
 
 local DelayInput = Instance.new("TextBox")
-DelayInput.Size, DelayInput.Position = UDim2.new(0, 80, 1, 0), UDim2.new(0, 130, 0, 0)
-DelayInput.BackgroundColor3, DelayInput.TextColor3 = Color3.fromRGB(15, 15, 15), Color3.fromRGB(255, 255, 255)
-DelayInput.Text, DelayInput.Font, DelayInput.TextSize = "3", Enum.Font.SourceSansBold, 12
+DelayInput.Size = UDim2.new(0, 80, 1, 0)
+DelayInput.Position = UDim2.new(0, 130, 0, 0)
+DelayInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+DelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+DelayInput.Text = "3"
+DelayInput.Font = Enum.Font.SourceSansBold
+DelayInput.TextSize = 12
 DelayInput.Parent = DelayFrame
 Instance.new("UICorner", DelayInput).CornerRadius = UDim.new(0, 4)
 
@@ -308,9 +460,13 @@ DelayInput.FocusLost:Connect(function()
 end)
 
 local ToggleRoll = Instance.new("TextButton")
-ToggleRoll.Size, ToggleRoll.Position = UDim2.new(1, -20, 0, 35), UDim2.new(0, 10, 0, 100)
-ToggleRoll.BackgroundColor3, ToggleRoll.TextColor3 = Color3.fromRGB(180, 40, 40), Color3.fromRGB(255, 255, 255)
-ToggleRoll.Text, ToggleRoll.Font, ToggleRoll.TextSize = "AUTO ROLL (ROKA+ARROW): OFF", Enum.Font.SourceSansBold, 12
+ToggleRoll.Size = UDim2.new(1, -20, 0, 35)
+ToggleRoll.Position = UDim2.new(0, 10, 0, 100)
+ToggleRoll.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+ToggleRoll.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleRoll.Text = "AUTO ROLL (ROKA+ARROW): OFF"
+ToggleRoll.Font = Enum.Font.SourceSansBold
+ToggleRoll.TextSize = 12
 ToggleRoll.Parent = StandFrame
 Instance.new("UICorner", ToggleRoll).CornerRadius = UDim.new(0, 6)
 
@@ -323,6 +479,10 @@ ToggleRoll.MouseButton1Click:Connect(function()
     ToggleRoll.BackgroundColor3 = _G.AutoRollStand and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(180, 40, 40)
     ToggleRoll.Text = _G.AutoRollStand and "AUTO ROLL (ROKA+ARROW): ON" or "AUTO ROLL (ROKA+ARROW): OFF"
 end)
+
+-- ============================================================================
+-- UTILITY FUNCTIONS
+-- ============================================================================
 
 local function UseItem(itemName)
     local bp = LocalPlayer:FindFirstChild("Backpack")
@@ -365,12 +525,204 @@ local function BypassYesButton()
     return false
 end
 
+-- ============================================================================
+-- SKILL EXECUTION FUNCTIONS
+-- ============================================================================
+
+local function ExecuteCombo(comboName)
+    local combo = _G.SkillCombos[comboName]
+    if not combo or not combo.Enabled then return false end
+    
+    local executed = false
+    for _, key in ipairs(combo.Keys) do
+        if _G.ActiveSkills[key] then
+            pcall(function()
+                VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
+                task.wait(0.03)
+                VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
+            end)
+            executed = true
+            task.wait(combo.Delay)
+        end
+    end
+    return executed
+end
+
+local function ExecuteAllActiveSkills()
+    local keyOrder = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"}
+    for _, key in ipairs(keyOrder) do
+        if _G.ActiveSkills[key] then
+            pcall(function()
+                VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
+                task.wait(0.05)
+                VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
+            end)
+            task.wait(0.1)
+        end
+    end
+end
+
+local function ExecuteComboRoundRobin()
+    local comboOrder = {"Combo1", "Combo2", "Combo3", "Combo4", "Combo5"}
+    for _, comboName in ipairs(comboOrder) do
+        if _G.SkillCombos[comboName] and _G.SkillCombos[comboName].Enabled then
+            ExecuteCombo(comboName)
+            task.wait(0.05)
+        end
+    end
+end
+
+-- ============================================================================
+-- AIMBOT + TELEPORT BACKSTAB FUNCTION (Enhanced)
+-- ============================================================================
+
+local function TeleportToBossBack(npc)
+    if not npc or not npc:IsA("Model") then return false end
+    local hrp = npc:FindFirstChild("HumanoidRootPart")
+    local humanoid = npc:FindFirstChild("Humanoid")
+    if not hrp or not humanoid or humanoid.Health <= 0 then return false end
+    
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return false end
+    
+    -- Calculate backstab position (behind NPC)
+    local lookVector = hrp.CFrame.LookVector
+    local backPosition = hrp.Position - (lookVector * 3.5)
+    -- Slight offset to avoid clipping
+    backPosition = backPosition + Vector3.new(0, 0.5, 0)
+    -- Teleport player behind boss
+    rootPart.CFrame = CFrame.new(backPosition, hrp.Position)
+    task.wait(0.02)
+    
+    -- Fire damage event for backstab bonus
+    DamageEvent:FireServer(humanoid, hrp.CFrame, 150, 0, Vector3.new(0,0,0), "Normal", 0)
+    return true
+end
+
+-- ============================================================================
+-- MAIN KILL AURA LOOP (Integrated Aimbot + Skill Combo)
+-- ============================================================================
+
+local comboRoundRobinCounter = 0
+local comboOrderList = {"Combo1", "Combo2", "Combo3", "Combo4", "Combo5"}
+
+task.spawn(function()
+    while true do
+        task.wait(0.05)  -- 50ms loop for responsive skill execution
+        
+        if _G.KillAura then
+            pcall(function()
+                local character = LocalPlayer.Character
+                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then return end
+                
+                local targets = {}
+                for _, npc in pairs(workspace:GetChildren()) do
+                    if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+                        if not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name then
+                            local humanoid = npc:FindFirstChild("Humanoid")
+                            if humanoid and humanoid.Health > 0 then
+                                if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
+                                    table.insert(targets, npc)
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                if #targets == 0 then return end
+                
+                -- Select nearest target
+                table.sort(targets, function(a, b)
+                    local distA = (rootPart.Position - a.HumanoidRootPart.Position).Magnitude
+                    local distB = (rootPart.Position - b.HumanoidRootPart.Position).Magnitude
+                    return distA < distB
+                end)
+                
+                local target = targets[1]
+                if not target then return end
+                
+                -- Teleport behind target (backstab)
+                TeleportToBossBack(target)
+                task.wait(0.03)
+                
+                -- === SKILL COMBO EXECUTION ===
+                -- Execute combos in round-robin fashion
+                comboRoundRobinCounter = comboRoundRobinCounter + 1
+                if comboRoundRobinCounter > #comboOrderList then
+                    comboRoundRobinCounter = 1
+                end
+                
+                local currentComboName = comboOrderList[comboRoundRobinCounter]
+                local comboExecuted = ExecuteCombo(currentComboName)
+                
+                -- If no combo executed, fallback to individual skills
+                if not comboExecuted then
+                    local keyOrder = {"E", "R", "T", "Y", "F", "Z", "X", "C", "V", "B", "J"}
+                    for _, key in ipairs(keyOrder) do
+                        if _G.ActiveSkills[key] then
+                            pcall(function()
+                                VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
+                                task.wait(0.04)
+                                VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
+                            end)
+                            task.wait(0.06)
+                        end
+                    end
+                end
+                
+                -- Additional damage after skills
+                task.wait(0.02)
+                DamageEvent:FireServer(target.Humanoid, target.HumanoidRootPart.CFrame, 80, 0, Vector3.new(0,0,0), "Normal", 0)
+            end)
+        end
+    end
+end)
+
+-- ============================================================================
+-- AUTO CLICK M1 LOOP
+-- ============================================================================
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if _G.AutoClickM1 then
+            pcall(function()
+                local character = LocalPlayer.Character
+                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+                if rootPart then
+                    for _, npc in pairs(workspace:GetChildren()) do
+                        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+                            if not Players:GetPlayerFromCharacter(npc) and npc.Name ~= LocalPlayer.Name and npc.Humanoid.Health > 0 then
+                                if _G.SelectedBoss == "All Bosses" or _G.SelectedBoss == npc.Name then
+                                    if (rootPart.Position - npc.HumanoidRootPart.Position).Magnitude <= 25 then
+                                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                                        task.wait(0.02)
+                                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ============================================================================
+-- AUTO ROLL STAND LOOP
+-- ============================================================================
+
 task.spawn(function()
     while true do
         task.wait(1.0)
         if _G.AutoRollStand then
             pcall(function()
-                InfoLabel.Text = "Đang ăn Rokakaka Fruit..."
+                InfoLabel.Text = "🔄 Đang ăn Rokakaka Fruit..."
                 local usedRoka = UseItem("Rokakaka Fruit") or UseItem("Rokakaka") or UseItem("Roka")
                 task.wait(1.5)
                 
@@ -380,11 +732,11 @@ task.spawn(function()
                 end
                 
                 if _G.AutoRollStand then
-                    InfoLabel.Text = "Đang đâm Mũi Tên (Arrow)..."
+                    InfoLabel.Text = "🏹 Đang đâm Mũi Tên (Arrow)..."
                     local usedArrow = UseItem("Stand Arrow") or UseItem("Arrow") or UseItem("Mysterious Arrow")
                     
                     if usedArrow then
-                        InfoLabel.Text = "Đợi " .. tostring(_G.RollDelay) .. "s xem Stand..."
+                        InfoLabel.Text = "⏳ Đợi " .. tostring(_G.RollDelay) .. "s xem Stand..."
                         task.wait(_G.RollDelay)
                     else
                         task.wait(1.0)
@@ -392,13 +744,33 @@ task.spawn(function()
                 end
                 
                 if not usedRoka and not usedArrow then
-                    InfoLabel.Text = "[THÔNG BÁO]: Hết Roka hoặc Mũi Tên!"
+                    InfoLabel.Text = "⚠️ [THÔNG BÁO]: Hết Roka hoặc Mũi Tên!"
                 else
-                    InfoLabel.Text = "CHẾ ĐỘ GACHA TUẦN TỰ"
+                    InfoLabel.Text = "🎰 CHẾ ĐỘ GACHA TUẦN TỰ"
                 end
             end)
         end
     end
 end)
 
--- Added configurable input delay placeholder
+-- ============================================================================
+-- AUTO SUMMON STAND LOOP (Enhanced)
+-- ============================================================================
+
+task.spawn(function()
+    while true do
+        task.wait(5.0)
+        if _G.AutoSummonEnabled then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char and not char:FindFirstChild("Stand") then
+                    AutoSummonStand()
+                end
+            end)
+        end
+    end
+end)
+
+-- ============================================================================
+-- END OF SCRIPT
+-- ============================================================================
