@@ -1006,9 +1006,6 @@ local function CreateControls(frame)
 end
 
 print("[ABD] Part 20/21 - UI Controls & Status Loaded")
-```
-
-```lua
 --[[
     ============================================================
     ABD OPTIMIZED SCRIPT - PART 21/21
@@ -1106,7 +1103,8 @@ function UI:CreateComplete()
     local toggle, stand, menuToggle = CreateTopSection(frame)
     toggleButton = toggle
     standLabel = stand
-local container, lframe, count = CreateBossList(frame)
+    
+    local container, lframe, count = CreateBossList(frame)
     listContainer = container
     listFrame = lframe
     countLabel = count
