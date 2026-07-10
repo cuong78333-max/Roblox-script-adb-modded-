@@ -1,7 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 local DamageEvent = ReplicatedStorage:FindFirstChild("Damage") or ReplicatedStorage:FindFirstChild("Dmg")
@@ -311,10 +310,7 @@ task.spawn(function()
                             task.spawn(function()
                                 while _G.KillAura and npc.Humanoid.Health > 0 and npc.Parent == workspace do
                                     game:GetService("RunService").Heartbeat:Wait()
-                                    local targetCFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
-                                    local tweenInfo = TweenInfo.new(0.01, Enum.EasingStyle.Linear)
-                                    local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
-                                    tween:Play()
+                                    rootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
                                 end
                             end)
 
@@ -327,14 +323,15 @@ task.spawn(function()
                                         if currentTime - SkillTimers[key] >= _G.SkillDelays[key] then
                                             pcall(function()
                                                 VirtualInputManager:SendKeyEvent(true, KeyMapping[key], false, game)
-                                                task.wait(0.02)
+                                                task.wait(0.03)
                                                 VirtualInputManager:SendKeyEvent(false, KeyMapping[key], false, game)
                                             end)
                                             SkillTimers[key] = currentTime
+                                            task.wait(0.02)
                                         end
                                     end
                                 end
-                                task.wait(0.01)
+                                task.wait(0.1)
                             end
                         end
                     end
