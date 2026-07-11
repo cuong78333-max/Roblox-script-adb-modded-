@@ -374,12 +374,22 @@ task.spawn(function()
             pcall(function()
                 InfoLabel.Text = "Rokakaka Eating..."
                 local usedRoka = UseItem("Rokakaka Fruit") or UseItem("Rokakaka") or UseItem("Roka")
-                task.wait(_G.RokaDelay)
-                if _G.AutoRollStand then BypassYesButton() task.wait(1.0) end
+                task.wait(1.5)
+                
+                if _G.AutoRollStand then 
+                    BypassYesButton() 
+                    task.wait(_G.RokaDelay) 
+                end
+                
                 if _G.AutoRollStand then
                     InfoLabel.Text = "Stand Arrow Piercing..."
                     local usedArrow = UseItem("Stand Arrow") or UseItem("Arrow") or UseItem("Mysterious Arrow")
-                    if usedArrow then InfoLabel.Text = "Watching Stand..." task.wait(_G.RollDelay) else task.wait(1.0) end
+                    if usedArrow then 
+                        InfoLabel.Text = "Watching Stand..." 
+                        task.wait(_G.RollDelay) 
+                    else 
+                        task.wait(1.0) 
+                    end
                 end
                 if not usedRoka and not usedArrow then InfoLabel.Text = "Out of Items!" else InfoLabel.Text = "GACHA ACTIVE" end
             end)
