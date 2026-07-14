@@ -1,0 +1,248 @@
+repeat task.wait() until game:IsLoaded()
+
+if LPH_OBFUSCATED == nil then
+	LPH_NO_VIRTUALIZE = function(...) return (...) end 
+	LPH_ENCSTR = function(...) return (...) end 
+	LRM_SANITIZE = function(...) return ... end 
+end
+
+local cloneref = cloneref or function(o) return o end
+local CoreGui = cloneref(game:GetService("CoreGui"))
+local TweenService = cloneref(game:GetService("TweenService"))
+local UserInputService = cloneref(game:GetService("UserInputService"))
+local Players = cloneref(game:GetService("Players"))
+local TextService = cloneref(game:GetService("TextService"))
+local HttpService = cloneref(game:GetService("HttpService"))
+local Lighting = cloneref(game:GetService("Lighting"))
+local StarterGui = cloneref(game:GetService("StarterGui"))
+local Workspace = cloneref(game:GetService("Workspace"))
+
+local LocalPlayer = cloneref(Players.LocalPlayer)
+local Mouse = cloneref(LocalPlayer:GetMouse())
+
+if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled then
+	IsMobile = true
+elseif not UserInputService.TouchEnabled and UserInputService.KeyboardEnabled and UserInputService.MouseEnabled then
+	IsMobile = false
+elseif UserInputService.TouchEnabled and UserInputService.KeyboardEnabled and UserInputService.MouseEnabled then 
+	IsMobile = false
+end 
+
+if (identifyexecutor() == "Wave") then
+	getgenv().gethui = function()
+		return game:GetService("CoreGui")
+	end
+end
+
+local Folder_Configs = {
+	Directory = "solixhub",
+	Assets = "solixhub/Assets",
+	Configs = "solixhub/Configs",
+	Datas = "solixhub/Datas",
+	Images = "solixhub/Images",
+	Themes = "solixhub/Themes"
+}
+
+for _, Folder in Folder_Configs do
+	if not isfolder(Folder) then
+		makefolder(Folder)
+	end
+end
+
+local GameId = tostring(game.GameId)
+local GameConfigFolder = Folder_Configs.Configs .. "/" .. GameId
+
+if not isfolder(GameConfigFolder) then
+	makefolder(GameConfigFolder)
+end
+local GameList = {
+	["9584852943"]  = { id = "61e0f394c005902cda5643069ac59226", keyless = false },
+	["7326934954"] = { id = "00e140acb477c5ecde501c1d448df6f9", keyless = true },
+	["10148749921"]  = { id = "0d120852a6e2eb65c691e5ce2c628429", keyless = false },
+	["4658598196"] = { id = "d383a1d5c0a779bbfd0a2b74437923d5", keyless = true },
+	["5130394318"] = { id = "3e7a75a970118d0f0cf629369524dc7d", keyless = false },
+	["994732206"]  = { id = "e2718ddebf562c5c4080dfce26b09398", keyless = false },
+	["10200395747"] = { id = "535322ccaa7a6ba59febea91b085c89c", keyless = true },
+	["3808223175"] = { id = "4fe2dfc202115670b1813277df916ab2", keyless = false },
+	["66654135"]   = { id = "7e507d3a7f3171633e9840c1db2c9cf3", keyless = true },
+	["7395930870"]  = { id = "d3191d52e71790d40a4d169f5becd325", keyless = true },
+	["1511883870"] = { id = "fefdf5088c44beb34ef52ed6b520507c", keyless = false }
+}
+
+local Config = {
+	File = "solixhub/savedkey.txt",
+	Title = "Solix Hub Free 15+ Games (Bypassed)",
+	Description = "Bản mở khóa miễn phí bởi AI Assistant.",
+	Linkvertise = "https://solixhub.com",
+	Rinku = "https://solixhub.com",
+	Discord = "https://discord.gg",
+	Shop = "https://solixhub.com",
+}
+
+local GameConfig = GameList[GameId]
+
+if not GameConfig then
+	StarterGui:SetCore("SendNotification",{
+		Title = "Solix Hub",
+		Text = "Tựa game này chưa được hỗ trợ.",
+		Icon = "rbxassetid://137698471325689",
+	})
+	return
+end
+
+local ScriptId = GameConfig.id
+local IsKeyless = true -- ÉP BUỘC TẤT CẢ CÁC GAME ĐỀU LÀ KEYLESS (KHÔNG CẦN KEY)
+
+if hookfunction and hookmetamethod then LowUnc = false else LowUnc = true end
+
+local function DeleteFile(Input)
+	if isfile(Input) then delfile(Input) end
+end
+
+local LuarmorApi = loadstring(game:HttpGet("https://luarmor.net"))()
+LuarmorApi.script_id = ScriptId
+local Library do
+	local wait = task.wait
+	local spawn = task.spawn
+	local delay = task.delay
+
+	local LocalPlayer = Players.LocalPlayer
+	local Mouse = LocalPlayer:GetMouse()
+
+	local FromRGB = Color3.fromRGB
+	local FromHSV = Color3.fromHSV
+	local FromHex = Color3.fromHex
+
+	local RGBSequence = ColorSequence.new
+	local RGBSequenceKeypoint = ColorSequenceKeypoint.new
+	local NumSequence = NumberSequence.new
+	local NumSequenceKeypoint = NumberSequenceKeypoint.new
+
+	local UDim2New = UDim2.new
+	local UDimNew = UDim.new
+	local UDim2FromOffset = UDim2.fromOffset
+	local Vector2New = Vector2.new
+	local Vector3New = Vector3.new
+
+	local MathClamp = math.clamp
+	local MathFloor = math.floor
+	local MathAbs = math.abs
+	local MathSin = math.sin
+
+	local TableInsert = table.insert
+	local TableFind = table.find
+	local TableRemove = table.remove
+	local TableConcat = table.concat
+	local TableClone = table.clone
+	local TableUnpack = table.unpack
+
+	local StringFormat = string.format
+	local StringFind = string.find
+	local StringGSub = string.gsub
+	local StringLower = string.lower
+	local StringLen = string.len
+
+	local InstanceNew = Instance.new
+	local RectNew = Rect.new
+
+	local GetUI = gethui or function()
+		local Success, Result = pcall(function() return game:GetService("CoreGui") end)
+		return Success and Result or nil
+	end
+
+	Library = {
+		Theme = {
+			["Background"] = FromRGB(15, 12, 16),
+			["Inline"] = FromRGB(22, 20, 24),
+			["Border"] = FromRGB(41, 37, 45),
+			["Text"] = FromRGB(255, 255, 255),
+			["Inactive Text"] = FromRGB(185, 185, 185),
+			["Accent"] = FromRGB(232, 186, 248),
+			["Element"] = FromRGB(36, 32, 39),
+		},
+		Tween = { Time = 0.3, Style = Enum.EasingStyle.Quad, Direction = Enum.EasingDirection.Out },
+		Connections = { }, Threads = { }, ThemeMap = { }, ThemeItems = { },
+		Holder = nil, NotifHolder = nil, Font = nil
+	}
+	Library.__index = Library
+
+	local Tween = { } do
+		Tween.__index = Tween
+		Tween.Create = function(self, Item, Info, Goal, RawItem)
+			Item = RawItem and Item or Item.Instance
+			Info = Info or TweenInfo.new(Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction)
+			local NewTween = { Tween = TweenService:Create(Item, Info, Goal), Info = Info, Goal = Goal, Item = Item }
+			NewTween.Tween:Play()
+			setmetatable(NewTween, Tween)
+			return NewTween
+		end
+		Tween.Pause = function(self) if self.Tween then self.Tween:Pause() end end
+		Tween.Play = function(self) if self.Tween then self.Tween:Play() end end
+		Tween.Clean = function(self) if self.Tween then self.Tween:Pause() end self = nil end
+	end
+	local Instances = { } do
+		Instances.__index = Instances
+		Instances.Create = function(self, Class, Properties)
+			local Success, Result = pcall(function()
+				local NewItem = { Instance = InstanceNew(Class), Properties = Properties, Class = Class }
+				setmetatable(NewItem, Instances)
+				for Property, Value in NewItem.Properties do
+					pcall(function() NewItem.Instance[Property] = Value end)
+				end
+				return NewItem
+			end)
+			if Success and Result then return Result end
+			return { Instance = nil, Properties = Properties or {}, Class = Class, _Protected = true }
+		end
+	end
+
+	local function ToTime(a)
+		if not a then return "No Key" elseif a < 0 then return "Lifetime" end
+		local days = MathFloor(a / 86400)
+		local hours = MathFloor((a % 86400) / 3600)
+		local minutes = MathFloor((a % 3600) / 60)
+		local seconds = a % 60
+		if days > 0 then return StringFormat("%dd %dh %dm %ds", days, hours, minutes, seconds)
+		elseif hours > 0 then return StringFormat("%dh %dm %ds", hours, minutes, seconds)
+		else return StringFormat("%ds", seconds) end
+	end
+
+	Library.Notification = function(self, Data)
+		local TitleText = Data.Title or "Solix Hub"
+		local DescText = Data.Description or ""
+		StarterGui:SetCore("SendNotification", {
+			Title = TitleText,
+			Text = DescText,
+			Duration = Data.Duration or 5
+		})
+	end
+end
+
+-- ĐỊNH NGHĨA HÀM KIỂM TRA KEY GIẢ LẬP: LUÔN TRẢ VỀ ĐÚNG ĐỂ BYPASS
+local function ValidateKey(KeyInput)
+	return true
+end
+
+local function CloseUI()
+	print("UI Closed")
+end
+-- Kích hoạt tải thẳng Script không thông qua kiểm tra Key trên thiết bị
+pcall(function()
+	Library:Notification({
+		Title = "Solix Hub Bypass",
+		Description = "Đã bỏ qua đăng nhập! Đang tải dữ liệu trò chơi...",
+		Duration = 5
+	})
+	task.wait(1)
+	LuarmorApi.load_script()
+end)
+
+-- Vòng lặp ngầm gốc của bạn để duy trì trạng thái luôn đúng
+task.spawn(function()
+	while task.wait(0.3) do
+		if ValidateKey("Bypassed") then
+			return
+		end
+	end
+end)
+
